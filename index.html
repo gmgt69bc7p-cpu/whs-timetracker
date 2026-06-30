@@ -1,0 +1,2122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>White Horse Safety – Time Tracker</title>
+
+<!-- MSAL.js for Microsoft 365 login -->
+<script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
+
+<style>
+  :root {
+    --primary: #1a56a4;
+    --primary-dark: #134080;
+    --success: #1D9E75;
+    --danger: #C0392B;
+    --warning-bg: #FAEEDA;
+    --warning-text: #854F0B;
+    --info-bg: #E6F1FB;
+    --info-text: #185FA5;
+    --green-bg: #EAF3DE;
+    --green-text: #3B6D11;
+    --border: #E2E0D8;
+    --bg: #F7F6F3;
+    --bg-card: #FFFFFF;
+    --text: #1A1916;
+    --text-secondary: #6B6965;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ---- AUTH SCREEN ---- */
+  #auth-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+  .auth-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 2.5rem; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,0.07); }
+  .auth-logo { font-size: 28px; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+  .auth-subtitle { color: var(--text-secondary); font-size: 14px; margin-bottom: 2rem; }
+  .ms-btn { display: inline-flex; align-items: center; gap: 10px; background: var(--primary); color: #fff; border: none; border-radius: var(--radius-sm); padding: 12px 24px; font-size: 15px; font-weight: 500; cursor: pointer; width: 100%; justify-content: center; }
+  .ms-btn:hover { background: var(--primary-dark); }
+  .ms-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+  #auth-error { color: var(--danger); font-size: 13px; margin-top: 1rem; display: none; }
+
+  /* ---- SETUP SCREEN ---- */
+  #setup-screen { display: none; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+  .setup-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; max-width: 500px; width: 100%; }
+  .setup-card h2 { font-size: 18px; margin-bottom: 6px; }
+  .setup-card p { color: var(--text-secondary); font-size: 13px; margin-bottom: 1.5rem; }
+  .setup-field { margin-bottom: 1rem; }
+  .setup-field label { font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px; }
+  .setup-field input, .setup-field select { width: 100%; font-size: 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text); }
+  .setup-steps { background: var(--bg); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.25rem; font-size: 13px; color: var(--text-secondary); }
+  .setup-steps ol { padding-left: 1.25rem; }
+  .setup-steps li { margin-bottom: 6px; }
+  .setup-steps code { background: #E8E6DF; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+
+  /* ---- MAIN APP ---- */
+  #app { display: none; max-width: 760px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+  .app-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px; }
+  .app-title { font-size: 20px; font-weight: 700; color: var(--primary); }
+  .user-pill { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+  .user-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+  .btn-signout { font-size: 12px; color: var(--text-secondary); background: none; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 10px; cursor: pointer; }
+
+  .group-bar { display: flex; align-items: center; gap: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .group-bar label { font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .group-bar select { font-size: 13px; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); }
+  .period-badge { margin-left: auto; font-size: 12px; color: var(--text-secondary); background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 3px 10px; white-space: nowrap; }
+
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; overflow-x: auto; }
+  .tab { padding: 9px 14px; font-size: 13px; cursor: pointer; background: none; border: none; color: var(--text-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+  .card-title { font-size: 14px; font-weight: 600; margin-bottom: 1rem; }
+
+  .btn { padding: 8px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: none; cursor: pointer; font-size: 13px; color: var(--text); font-family: var(--font); }
+  .btn:hover { background: var(--bg); }
+  .btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .btn.primary:hover { background: var(--primary-dark); }
+  .btn.success { background: var(--success); color: #fff; border-color: var(--success); }
+  .btn.danger { color: var(--danger); border-color: var(--danger); }
+  .btn.sm { padding: 4px 10px; font-size: 12px; }
+
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 500; white-space: nowrap; }
+  .badge-office  { background: var(--info-bg);    color: var(--info-text); }
+  .badge-travel  { background: var(--warning-bg); color: var(--warning-text); }
+  .badge-onsite  { background: var(--green-bg);   color: var(--green-text); }
+  .badge-pending  { background: var(--warning-bg); color: var(--warning-text); }
+  .badge-approved { background: var(--green-bg);   color: var(--green-text); }
+  .badge-draft    { background: #F1EFE8; color: #5F5E5A; }
+  .badge-recalled { background: #F1EFE8; color: #5F5E5A; }
+
+  /* Timer */
+  .timer-wrap { text-align: center; padding: 1rem 0; }
+  .timer-display { font-size: 44px; font-weight: 600; letter-spacing: 3px; color: var(--text); }
+  .timer-running { color: var(--success); }
+  .timer-status { font-size: 13px; color: var(--text-secondary); margin-top: 6px; }
+  .type-toggle { display: flex; gap: 8px; justify-content: center; margin: 1rem 0; flex-wrap: wrap; }
+  .type-btn { padding: 7px 18px; border-radius: 99px; border: 1px solid var(--border); background: none; cursor: pointer; font-size: 13px; color: var(--text-secondary); font-family: var(--font); }
+  .type-btn.active-office { background: var(--info-bg);    color: var(--info-text);    border-color: #378ADD; }
+  .type-btn.active-travel { background: var(--warning-bg); color: var(--warning-text); border-color: #BA7517; }
+  .type-btn.active-onsite { background: var(--green-bg);   color: var(--green-text);   border-color: #639922; }
+
+  /* Project search */
+  .proj-wrap { position: relative; }
+  .proj-input { width: 100%; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text); outline: none; font-family: var(--font); }
+  .proj-input:focus { border-color: var(--primary); }
+  .proj-dd { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); max-height: 220px; overflow-y: auto; z-index: 200; display: none; box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+  .proj-dd.open { display: block; }
+  .proj-opt { padding: 9px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text); }
+  .proj-opt:last-child { border-bottom: none; }
+  .proj-opt:hover, .proj-opt.focused { background: var(--bg); }
+  .proj-opt mark { background: #FAEEDA; color: #854F0B; border-radius: 2px; padding: 0 1px; }
+  .proj-none { padding: 12px; font-size: 13px; color: var(--text-secondary); text-align: center; }
+
+  /* Period grid */
+  .period-grid-wrap { margin-bottom: 1rem; }
+  .week-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 5px; }
+  .week-header { font-size: 11px; color: var(--text-secondary); padding: 4px 0 2px; font-weight: 500; }
+  .day-cell { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 4px; text-align: center; cursor: pointer; background: var(--bg-card); transition: border-color 0.1s; }
+  .day-cell:hover { border-color: var(--primary); }
+  .day-cell .dn { font-size: 10px; color: var(--text-secondary); }
+  .day-cell .dd { font-size: 11px; color: var(--text-secondary); }
+  .day-cell .dh { font-size: 13px; font-weight: 600; margin-top: 2px; }
+  .day-cell .dh.has { color: var(--success); }
+  .day-cell.today { border-color: var(--primary); }
+  .day-cell.sel { background: var(--info-bg); border-color: var(--primary); }
+
+  /* Form */
+  .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 10px; }
+  .form-field { display: flex; flex-direction: column; gap: 4px; }
+  .form-field label { font-size: 12px; color: var(--text-secondary); }
+  .form-field input, .form-field select { font-size: 13px; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text); font-family: var(--font); }
+  .form-field input:focus, .form-field select:focus { outline: none; border-color: var(--primary); }
+  .form-box { background: var(--bg); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1rem; }
+  .form-box-title { font-size: 13px; font-weight: 500; margin-bottom: 10px; }
+
+  /* Table */
+  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  .tbl th { text-align: left; padding: 7px 8px; font-size: 11px; font-weight: 500; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+  .tbl td { padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tbl tr:last-child td { border-bottom: none; }
+
+  /* Summary metrics */
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.25rem; }
+  .metric { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .metric .ml { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+  .metric .mv { font-size: 22px; font-weight: 600; }
+  .metric .ms { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+  /* Approval card */
+  .approval-item { padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .approval-item:last-child { border-bottom: none; }
+  .approval-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+  .approval-actions { display: flex; gap: 8px; align-self: center; }
+
+  /* Sync indicator */
+  .sync-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--border); color: var(--text-secondary); }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+  .sync-dot.syncing { background: #E8A000; animation: pulse 1s infinite; }
+  .sync-dot.error { background: var(--danger); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .empty { text-align: center; padding: 2.5rem; color: var(--text-secondary); font-size: 14px; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1A1916; color: #fff; padding: 10px 18px; border-radius: var(--radius-sm); font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1000; max-width: 320px; }
+  .toast.show { opacity: 1; }
+
+  /* Rate cards */
+  .rate-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+  .rate-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; text-align: center; }
+  .rate-card .rc-lbl { font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; }
+  .rate-card .rc-val { display: flex; align-items: center; justify-content: center; gap: 3px; }
+  .rate-card .rc-val span { font-size: 13px; color: var(--text-secondary); }
+  .rate-card input { width: 80px; text-align: center; font-size: 17px; font-weight: 600; border: none; background: none; color: var(--text); outline: none; font-family: var(--font); }
+  .rate-card input:focus { background: var(--bg); border-radius: 4px; }
+
+  @media (max-width: 500px) {
+    .metrics { grid-template-columns: 1fr 1fr; }
+    .rate-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== AUTH SCREEN ========== -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">🐴 White Horse Safety</div>
+    <div class="auth-subtitle">Time Tracker &amp; Timesheet Submission</div>
+    <button class="ms-btn" onclick="signIn()">
+      <svg viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+        <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+        <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+        <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+      </svg>
+      Sign in with Microsoft 365
+    </button>
+    <div id="auth-error">Sign-in failed. Please try again or contact your IT admin.</div>
+    <p style="font-size:11px;color:var(--text-secondary);margin-top:1.5rem;">
+      Uses your existing White Horse Safety Microsoft 365 account.<br/>
+      No separate password required.
+    </p>
+  </div>
+</div>
+
+<!-- ========== SETUP SCREEN ========== -->
+<div id="setup-screen">
+  <div class="setup-card">
+    <h2>⚙️ One-time Setup</h2>
+    <p>An IT admin needs to complete this once. After that, employees just sign in.</p>
+    <div class="setup-steps">
+      <ol>
+        <li>Go to <strong>portal.azure.com</strong> → Microsoft Entra ID → App registrations → <strong>New registration</strong></li>
+        <li>Name it <code>WHS Time Tracker</code>, set account type to <em>Single tenant</em></li>
+        <li>Add a redirect URI: <strong>Single-page application (SPA)</strong> → paste the URL where this file is hosted</li>
+        <li>Under API permissions, add <strong>Microsoft Graph → Delegated</strong>: <code>User.Read</code>, <code>Sites.ReadWrite.All</code></li>
+        <li>Grant admin consent for your tenant</li>
+        <li>Copy the <strong>Application (client) ID</strong> and <strong>Directory (tenant) ID</strong> into the fields below</li>
+        <li>In SharePoint, create three lists named exactly: <code>TimesheetEntries</code>, <code>Timesheets</code>, and <code>Expenses</code></li>
+      </ol>
+    </div>
+    <div class="setup-field">
+      <label>Azure App Client ID</label>
+      <input type="text" id="setup-client-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+    </div>
+    <div class="setup-field">
+      <label>Azure Tenant ID</label>
+      <input type="text" id="setup-tenant-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+    </div>
+    <div class="setup-field">
+      <label>SharePoint Site (auto-detected)</label>
+      <input type="text" id="setup-site" value="whitehorsesafety.sharepoint.com" readonly style="background:var(--bg);color:var(--text-secondary);" />
+    </div>
+    <button class="btn primary" style="width:100%; margin-top:0.5rem;" onclick="saveSetup()">Save &amp; Continue</button>
+    <p style="font-size:11px;color:var(--text-secondary);margin-top:1rem;text-align:center;">Settings are saved in this browser. Each device needs this done once.</p>
+  </div>
+</div>
+
+<!-- ========== MAIN APP ========== -->
+<div id="app">
+  <div class="toast" id="toast"></div>
+
+  <div class="app-header">
+    <div class="app-title">🐴 WHS Time Tracker</div>
+    <div class="user-pill">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <span id="user-name">Loading…</span>
+      <span id="user-pill-extra"></span>
+      <span class="sync-badge"><span class="sync-dot" id="sync-dot"></span><span id="sync-label">Synced</span></span>
+      <button class="btn-signout" onclick="signOut()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="group-bar">
+    <label>Pay group:</label>
+    <select id="pay-group" onchange="onGroupChange()">
+      <option value="B">Group B</option>
+      <option value="A">Group A</option>
+    </select>
+    <span class="period-badge" id="period-badge">Loading…</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('clock')">⏱ Clock in/out</button>
+    <button class="tab" onclick="switchTab('manual')">📅 Log hours</button>
+    <button class="tab" onclick="switchTab('timesheets')">📄 Timesheets</button>
+    <button class="tab admin-only-tab" id="approvals-tab-btn" onclick="switchTab('approvals')" style="display:none;">✅ Approvals <span id="pend-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:1px 6px;font-size:11px;margin-left:3px;"></span></button>
+    <button class="tab" onclick="switchTab('expenses')">🧾 Expenses</button>
+  <button class="tab admin-only-tab" onclick="switchTab('reports')" style="display:none;">📊 Reports</button>
+  <button class="tab" onclick="switchTab('rates')">⚙️ Rates</button>
+  </div>
+
+  <!-- CLOCK IN/OUT -->
+  <div class="section active" id="section-clock">
+    <div class="card">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+        <div class="form-field" style="min-width:240px;flex:1;">
+          <label>Project</label>
+          <div class="proj-wrap">
+            <input class="proj-input" id="clk-proj-in" placeholder="Type project # or name…" autocomplete="off"
+              oninput="filterP('clk')" onfocus="openP('clk')" onblur="closeP('clk')" onkeydown="navP(event,'clk')" />
+            <input type="hidden" id="clk-proj-gid" />
+            <div class="proj-dd" id="clk-proj-dd"></div>
+          </div>
+        </div>
+        <div class="form-field" style="min-width:160px;flex:1;">
+          <label>Notes (optional)</label>
+          <input type="text" id="clk-notes" placeholder="What are you working on?" />
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--text-secondary);text-align:center;margin-bottom:6px;">Hour type</p>
+      <div class="type-toggle">
+        <button class="type-btn active-office" id="ct-office" onclick="setCT('office')">🏢 Office</button>
+        <button class="type-btn" id="ct-travel" onclick="setCT('travel')">✈️ Travel</button>
+        <button class="type-btn" id="ct-onsite" onclick="setCT('onsite')">📍 Onsite</button>
+      </div>
+      <div class="timer-wrap">
+        <div class="timer-display" id="timer">00:00:00</div>
+        <div class="timer-status" id="timer-status">Not clocked in</div>
+      </div>
+      <div style="text-align:center;margin-top:1rem;">
+        <button class="btn success" id="clk-btn" onclick="toggleClock()" style="min-width:140px;">Clock in</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Today's entries</div>
+      <div id="today-list"></div>
+    </div>
+  </div>
+
+  <!-- LOG HOURS -->
+  <div class="section" id="section-manual">
+    <div class="card">
+      <div class="card-title">Pay period: <span id="period-label" style="font-weight:400;color:var(--text-secondary);"></span></div>
+      <div class="period-grid-wrap" id="period-grid"></div>
+      <div class="form-box">
+        <div class="form-box-title" id="sel-day-label">Select a day above to log hours</div>
+        <div class="form-row">
+          <div class="form-field"><label>Hours</label><input type="number" id="m-hrs" min="0" max="24" step="0.5" placeholder="0" style="width:70px;" /></div>
+          <div class="form-field"><label>Type</label>
+            <select id="m-type"><option value="office">🏢 Office</option><option value="travel">✈️ Travel</option><option value="onsite">📍 Onsite</option></select>
+          </div>
+          <div class="form-field" style="min-width:220px;flex:1;">
+            <label>Project</label>
+            <div class="proj-wrap">
+              <input class="proj-input" id="man-proj-in" placeholder="Type project # or name…" autocomplete="off"
+                oninput="filterP('man')" onfocus="openP('man')" onblur="closeP('man')" onkeydown="navP(event,'man')" />
+              <input type="hidden" id="man-proj-gid" />
+              <div class="proj-dd" id="man-proj-dd"></div>
+            </div>
+          </div>
+          <div class="form-field" style="flex:1;min-width:110px;"><label>Notes</label><input type="text" id="m-notes" placeholder="Optional" /></div>
+          <button class="btn primary" onclick="addEntry()" style="height:34px;align-self:flex-end;">Add</button>
+        </div>
+      </div>
+      <div id="period-entry-list"></div>
+    </div>
+  </div>
+
+  <!-- TIMESHEETS -->
+  <div class="section" id="section-timesheets">
+    <div class="metrics">
+      <div class="metric"><div class="ml">Current period</div><div class="mv" id="ts-cur">0h</div><div class="ms" id="ts-cur-est"></div></div>
+      <div class="metric"><div class="ml">Previous period</div><div class="mv" id="ts-prev">—</div></div>
+      <div class="metric"><div class="ml">Pending approval</div><div class="mv" id="ts-pend">0</div></div>
+    </div>
+    <div class="card" id="ts-breakdown" style="display:none;">
+      <div class="card-title" style="margin-bottom:8px;">Current period breakdown</div>
+      <div id="ts-type-summ" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <div class="card-title" style="margin:0;">All timesheets</div>
+        <button class="btn primary" onclick="submitTimesheet()">Submit period ↗</button>
+      </div>
+      <table class="tbl">
+        <thead><tr><th style="width:24%">Period</th><th style="width:9%">Hrs</th><th style="width:9%">Grp</th><th style="width:22%">Projects</th><th style="width:20%">Types</th><th style="width:10%">Status</th><th style="width:6%"></th></tr></thead>
+        <tbody id="ts-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- APPROVALS -->
+  <div class="section" id="section-approvals">
+    <div class="card">
+      <div class="card-title">Pending approvals</div>
+      <div id="appr-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="color:var(--text-secondary);font-weight:400;">Approved history</div>
+      <div id="appr-history"></div>
+    </div>
+  </div>
+
+  <!-- EXPENSES -->
+  <div class="section" id="section-expenses">
+    <div class="card">
+      <div class="card-title">Submit Travel Expenses</div>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:1rem;">Log expenses for the current pay period. Receipts can be noted and submitted with your timesheet.</p>
+      <div class="form-box">
+        <div class="form-row">
+          <div class="form-field"><label>Date</label><input type="date" id="exp-date" style="font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);" /></div>
+          <div class="form-field" style="min-width:180px;flex:1;">
+            <label>Project</label>
+            <div class="proj-wrap">
+              <input class="proj-input" id="exp-proj-in" placeholder="Type project # or name…" autocomplete="off"
+                oninput="filterP('exp')" onfocus="openP('exp')" onblur="closeP('exp')" onkeydown="navP(event,'exp')" />
+              <input type="hidden" id="exp-proj-gid" />
+              <div class="proj-dd" id="exp-proj-dd"></div>
+            </div>
+          </div>
+          <div class="form-field">
+            <label>Category</label>
+            <select id="exp-cat" style="font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+              <option value="mileage">🚗 Mileage</option>
+              <option value="airfare">✈️ Airfare</option>
+              <option value="hotel">🏨 Hotel</option>
+              <option value="meals">🍽️ Meals</option>
+              <option value="rental">🚙 Car Rental</option>
+              <option value="parking">🅿️ Parking/Tolls</option>
+              <option value="other">📋 Other</option>
+            </select>
+          </div>
+          <div class="form-field"><label>Amount ($)</label><input type="number" id="exp-amount" min="0" step="0.01" placeholder="0.00" style="width:90px;font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);" /></div>
+          <div class="form-field" style="flex:1;min-width:120px;"><label>Description</label><input type="text" id="exp-desc" placeholder="e.g. Flight to Detroit" style="font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);width:100%;" /></div>
+          <button class="btn primary" onclick="addExpense()" style="height:34px;align-self:flex-end;">Add</button>
+        </div>
+      </div>
+      <div id="expense-list"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <div>
+          <div class="card-title" style="margin:0;">Period expense total</div>
+          <div style="font-size:22px;font-weight:600;margin-top:4px;" id="exp-total">$0.00</div>
+        </div>
+        <button class="btn primary" onclick="submitExpenses()">Submit expenses ↗</button>
+      </div>
+      <p style="font-size:12px;color:var(--text-secondary);">Expenses are submitted to <strong>Ted Sberna Jr, Mike Sberna, or Ryan Klitzke</strong> along with your timesheet for the current pay period.</p>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div class="section" id="section-reports">
+    <div class="card">
+      <div class="card-title">Hours by project</div>
+      <div class="form-row" style="margin-bottom:1rem;">
+        <div class="form-field"><label>Filter by project</label><input type="text" id="rpt-proj-filter" placeholder="Type to filter…" oninput="renderReports()" style="font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);min-width:200px;" /></div>
+        <div class="form-field"><label>From</label><input type="date" id="rpt-from" oninput="renderReports()" style="font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);" /></div>
+        <div class="form-field"><label>To</label><input type="date" id="rpt-to" oninput="renderReports()" style="font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);" /></div>
+        <button class="btn" onclick="clearReportFilters()" style="height:34px;align-self:flex-end;">Clear</button>
+      </div>
+      <div id="rpt-by-project"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Hours by employee</div>
+      <div id="rpt-by-employee"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Hours by type</div>
+      <div id="rpt-by-type"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">All time entries</div>
+      <div id="rpt-all-entries"></div>
+    </div>
+  </div>
+
+  <!-- RATES -->
+  <div class="section" id="section-rates">
+    <div class="card">
+      <div class="card-title">Hourly rates by type</div>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:1.25rem;">Click a value to edit. Rates are used to calculate estimated earnings on timesheet submissions.</p>
+      <div class="rate-grid">
+        <div class="rate-card"><div class="rc-lbl"><span class="badge badge-office">🏢 Office</span></div><div class="rc-val"><span>$</span><input type="number" id="r-office" min="0" step="0.01" value="75" onchange="saveRates()" /><span>/hr</span></div></div>
+        <div class="rate-card"><div class="rc-lbl"><span class="badge badge-travel">✈️ Travel</span></div><div class="rc-val"><span>$</span><input type="number" id="r-travel" min="0" step="0.01" value="95" onchange="saveRates()" /><span>/hr</span></div></div>
+        <div class="rate-card"><div class="rc-lbl"><span class="badge badge-onsite">📍 Onsite</span></div><div class="rc-val"><span>$</span><input type="number" id="r-onsite" min="0" step="0.01" value="110" onchange="saveRates()" /><span>/hr</span></div></div>
+      </div>
+    </div>
+    <div class="card"><div class="card-title">Current period earnings estimate</div><div id="rates-summ"></div></div>
+  </div>
+</div>
+
+<script>
+// =====================================================================
+// CONFIGURATION  (filled by setup screen or pre-filled by IT admin)
+// =====================================================================
+var CFG = (function() { try { return JSON.parse(localStorage.getItem('whs_cfg') || '{}'); } catch(e) { return {}; } })();
+const SP_HOST = 'whitehorsesafety.sharepoint.com';
+const ADMINS = [
+  'ted.s@whitehorsesafety.com',       // Ted Sberna Jr
+  'ryan.klitzke@whitehorsesafety.com', // Ryan Klitzke
+  'mike@whitehorsesafety.com'          // Mike Sberna
+];
+const APPROVER_NAME = 'Ted Sberna Jr, Mike Sberna, or Ryan Klitzke';
+function isAdmin() { return ADMINS.includes((currentAccount?.username || '').toLowerCase()); }
+const SP_SITE_PATH = '/'; // root site — adjust if needed
+const ENTRIES_LIST = 'TimesheetEntries';
+const TIMESHEETS_LIST = 'Timesheets';
+const EXPENSES_LIST = 'Expenses';
+
+// =====================================================================
+// PAY PERIOD LOGIC
+// =====================================================================
+const MS_DAY = 86400000, MS_PERIOD = 14 * MS_DAY;
+const ANCHORS = { B: new Date('2026-06-22T00:00:00'), A: new Date('2026-06-29T00:00:00') };
+
+function getPeriodStart(group, ref) {
+  const anchor = ANCHORS[group], diff = new Date(ref) - anchor;
+  return new Date(anchor.getTime() + Math.floor(diff / MS_PERIOD) * MS_PERIOD);
+}
+function getPeriodEnd(start) { return new Date(start.getTime() + 13 * MS_DAY); }
+function isoDate(d) { return new Date(d).toISOString().slice(0, 10); }
+function fmtDate(d) { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+function fmtDateFull(d) { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+function pad(n) { return String(n).padStart(2, '0'); }
+function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function inPeriod(dateStr, start, end) { const d = new Date(dateStr + 'T00:00:00'); return d >= start && d <= end; }
+function getGroup() { return document.getElementById('pay-group')?.value || 'B'; }
+
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const TL = { office: 'Office', travel: 'Travel', onsite: 'Onsite' };
+
+// =====================================================================
+// ASANA PROJECTS (full list baked in)
+// =====================================================================
+const PROJECTS = [
+  {gid:"1211411211357681",name:"0024_Ryan Klitzke 25"},
+  {gid:"1211667027136294",name:"24-1019 TMMK Walk/Dont Walk Arms #2"},
+  {gid:"1213912373131953",name:"24-1032_TMMTX Risk Assessment Press Dejima Equipment"},
+  {gid:"1212270839645366",name:"24-1032aa Stamping Destack Sheet Feeder - Line 1 Ver"},
+  {gid:"1212270847060871",name:"24-1032bb Stamping Vision Robot Inspection Zone ABB Robot Line 2A Ver"},
+  {gid:"1212270847060876",name:"24-1032cc Stamping Destack Sheet Feeder - Line 3A Ver"},
+  {gid:"1212270847060881",name:"24-1032dd Stamping Vision Robot Inspection Zone Motoman Robot - Line 3A Ver"},
+  {gid:"1212270847060886",name:"24-1032ee Stamping Sheet Feeder APT&T - COTR Line Ver"},
+  {gid:"1212270847060891",name:"24-1032ff Stamping Carriage Lifter Auto Palletizer - COTR Line Ver"},
+  {gid:"1212270847060896",name:"24-1032gg Stamping Laser Weld Line 1 Soutec Ver"},
+  {gid:"1212270847060901",name:"24-1032hh Stamping Laser Weld Line 2 Soutec Ver"},
+  {gid:"1212270847060906",name:"24-1032ii Stamping Laser Weld Line 3 Soutec Ver"},
+  {gid:"1212270847060911",name:"24-1032jj Stamping Laser Weld Line 4 Soutec Ver"},
+  {gid:"1211648805337211",name:"24-2015c_GM Pontiac Propulsion (Thermotron Oven)"},
+  {gid:"1215778933826542",name:"24-2015f_Pontiac Propulsion Lab Tig Welder"},
+  {gid:"1215508298772910",name:"24-2015f_Propulsion Tig Welder-See 26-2050"},
+  {gid:"1214993872319080",name:"24-2049_GM Flint Engine-CR35 Validation"},
+  {gid:"1211648805337119",name:"24-2049_GM Flint Engine-CR35 Validation (6 Trips)"},
+  {gid:"1211611191772494",name:"24-2062_GM Arlington Mark One Corp. New Oil Re-Apply Machine"},
+  {gid:"1211614441076395",name:"24-2089_GM Flint T1 Hem Press Safety Upgrade"},
+  {gid:"1211648803231650",name:"24-2094_GM Defiance Laempe OP40 Warranty Issue"},
+  {gid:"1211396858223811",name:"24-3003-2 DHF Inline Capper V"},
+  {gid:"1211592144049456",name:"24-3011 HTST Tea Skid Replacement RA, V, and V"},
+  {gid:"1215629840590847",name:"24-3012 Can Line Remediation"},
+  {gid:"1211653637028392",name:"24-3012 Can Line Remediation (original)"},
+  {gid:"1211674039255771",name:"24-3012-11 Can Line Remediation - Case Packer (Labeling/Placarding/SRPCS/Guarding)"},
+  {gid:"1211674039255776",name:"24-3012-12 Can Line Remediation - Full Case Conveyor (Labeling/Placarding/SRPCS/Guarding)"},
+  {gid:"1211674039255781",name:"24-3012-13 Can Line Remediation - Case Taper (Labeling/Placarding/SRPCS/Guarding)"},
+  {gid:"1211653637028397",name:"24-3012-6 Can Line Remediation - Tunnel Pasteurizer (Labeling/Placarding/STO/E-Stops)"},
+  {gid:"1211653637028402",name:"24-3012-6 Can Line Remediation - Tunnel Pasteurizer (Validation)"},
+  {gid:"1211674039255766",name:"24-3012-8 Can Line Remediation - Pressure Ins. Unit (Labeling/Placarding/SRPCS/Guarding)"},
+  {gid:"1211787115248482",name:"24-3012-8 Can Line Remediation - Pressure Ins. Unit (Validation)"},
+  {gid:"1211396858223816",name:"24-3014-1 Hot Fill Inline Capper RA, V"},
+  {gid:"1211674039255786",name:"24-3017 MPB Remaining Validation"},
+  {gid:"1211674042508303",name:"24-3017-1 MPB Remaining Validation - Linker Bottle Filler and Blending Skid"},
+  {gid:"1211674042508308",name:"24-3017-3 MPB Remaining Validation - Bottle Dryer"},
+  {gid:"1211674042508313",name:"24-3017-4 MPB Remaining Validation - Velcorin Doser"},
+  {gid:"1211674042508318",name:"24-3017-5 MPB Remaining Validation - Clean In Place (CIP)"},
+  {gid:"1211674042508323",name:"24-3017-6 MPB Remaining Validation - Nitrogen Doser"},
+  {gid:"1211674042508328",name:"24-3017-7 MPB Remaining Validation - GC Evans/BW Design Group bottling Conveyor"},
+  {gid:"1211674042508333",name:"24-3018 Can Line Validation"},
+  {gid:"1211674042508338",name:"24-3018-1 Can Line Validation - Can Conveyor"},
+  {gid:"1211674042508343",name:"24-3018-2 Can Line Validation - Zero Pressure Inliner"},
+  {gid:"1211674042508348",name:"24-3018-3 Can Line Validation - Can Rinser/Filler/Seamer"},
+  {gid:"1211674042508353",name:"24-3018-4 Can Line Validation - Beverage Blending Skid"},
+  {gid:"1211674042508358",name:"24-3018-5 Can Line Validation - Inkjet Coder"},
+  {gid:"1211674042508363",name:"24-3018-6 Can Line Validation - Can Dryer"},
+  {gid:"1211592144049461",name:"24-3022 Glass Crusher RA Updates and Re-Validation"},
+  {gid:"1211228758854809",name:"24-3023-1 Packaging Lab Cobot RA"},
+  {gid:"1211396858223825",name:"24-3027-1 Re-validation of Phase 2B Items - Taper"},
+  {gid:"1211592144049466",name:"24-3027-2 Re-validation of Phase 2B Items - Packer"},
+  {gid:"1211396858223830",name:"24-3028-1 Allpax Can Line Basket RA, V"},
+  {gid:"1211396858223834",name:"24-3028-2 Allpax Can Line Basket V"},
+  {gid:"1211295664606405",name:"24-4004 Marelli - 14 Machine Remediation"},
+  {gid:"1211295664606434",name:"24-4004a Marelli - W166L1_5200"},
+  {gid:"1211295664606462",name:"24-4004b Marelli - 3K-2 (IMM)"},
+  {gid:"1211295664606501",name:"24-4004c Marelli - 3K-4 (IMM)"},
+  {gid:"1211295664606530",name:"24-4004d Marelli - KL Service 5400R"},
+  {gid:"1211295664606557",name:"24-4004e Marelli - DTL5_5200"},
+  {gid:"1211295664606580",name:"24-4004f Marelli - DTL4_5200"},
+  {gid:"1211295664606607",name:"24-4004g Marelli - DTL3_5200"},
+  {gid:"1211295664606639",name:"24-4004h Marelli - DTL2_5200"},
+  {gid:"1211295664606664",name:"24-4004i Marelli - Shrink Wrapper"},
+  {gid:"1211295664606690",name:"24-4004j Marelli - AntiFog Line 1"},
+  {gid:"1211295664606697",name:"24-4004k Marelli - Reel Conveyor Tower (3 towers/6 total machines)"},
+  {gid:"1211295664606704",name:"24-4004l Marelli - 650-9 (IMM)"},
+  {gid:"1211295664606711",name:"24-4004m Marelli - 650-7 (IMM)"},
+  {gid:"1211295664606718",name:"24-4004n Marelli - JL L2 5200"},
+  {gid:"1211666433889150",name:"24-4045 Magna Eagle Bend T8 Press Line RA"},
+  {gid:"1215725641150466",name:"24-4076 Smuckers Extruder #7 Upgrade"},
+  {gid:"1211673634949586",name:"24-4077 Steel Dynamics Collecting Bed"},
+  {gid:"1211673634949603",name:"24-4078 Steel Dynamics Roll Changer"},
+  {gid:"1211673634949588",name:"24-4079 Steel Dynamics Crop Shear"},
+  {gid:"1211673634949238",name:"24-4087 Magna Eagle Bend Hot Stamp Line 1"},
+  {gid:"1211673634949221",name:"24-4088 Magna Eagle Bend Hot Stamp Line 2"},
+  {gid:"1211673634949204",name:"24-4089 Magna Eagle Bend Hot Stamp Line 3"},
+  {gid:"1211673634947024",name:"24-4091 Magna Eagle Bend Hot Stamp Line 5 RA"},
+  {gid:"1211673634949440",name:"24-4108 Eagle Bend P9 Press Line RA Ver"},
+  {gid:"1211673634949291",name:"24-4109 Eagle Bend Weingarten Tandem Line RA, Ver"},
+  {gid:"1211673634949350",name:"24-4109b WT Press 2 Robot Automation"},
+  {gid:"1211673634949341",name:"24-4109c WT Press 3 Robot Automation"},
+  {gid:"1211673634949378",name:"24-4109d WT Press 4 Robot Automation"},
+  {gid:"1211673634949255",name:"24-4110 Eagle Bend P21 Press Line RA, Ver"},
+  {gid:"1211673634949399",name:"24-4111 Eagle Bend T5 Press Line RA Ver"},
+  {gid:"1215721713845993",name:"24-5000 Honda LG Battery Overall"},
+  {gid:"1214257923624404",name:"24-5000 Honda LG Battery Overall (v2)"},
+  {gid:"1211667027136331",name:"24-5005 Honda LG Battery PKG Validation Test Docs"},
+  {gid:"1211667027136348",name:"24-5007 Honda LG Battery Formation Validation Test Docs"},
+  {gid:"1211667027136362",name:"24-5021 Honda LG Battery Module Validation Test Docs"},
+  {gid:"1211673634949735",name:"24-5025 Honda Battery Module Tester & Dispenser Validation Test Docs"},
+  {gid:"1211653688677475",name:"24-5028 Honda Battery FA Avaco Validation Test Docs"},
+  {gid:"1211667027136314",name:"24-5030 Honda Battery L&S Validation Test Docs"},
+  {gid:"1211673634949772",name:"24-5032 RA Training"},
+  {gid:"1212748945426656",name:"25-1004-C TMMK IMM11 Safety Upgrade Cont Work"},
+  {gid:"1213971926734588",name:"25-1004B IMM11 ECO"},
+  {gid:"1211653688677514",name:"25-1035 TBMNC BEV CoHE"},
+  {gid:"1211653688677536",name:"25-1037 Yves Toyopuc Training Week 2"},
+  {gid:"1211697793316090",name:"25-1038 TMMTX Bell Head Test Validation"},
+  {gid:"1211773561986200",name:"25-1039 Automatic Feed Consulting Runout Conveyor"},
+  {gid:"1211807899130574",name:"25-1040 TMMK Plastics EndMill Machine Ver and Val Docs"},
+  {gid:"1211836315507769",name:"25-1042 TMMK BW Bushing Press Krakuri Verification"},
+  {gid:"1211836316787275",name:"25-1043 TMMTX BW Rank B and C Validation"},
+  {gid:"1211911106653357",name:"25-1044 TMMAL TNGA1 Oil Jet Verification and Val Test Doc"},
+  {gid:"1211967802605180",name:"25-1045 TMMK Plastics Tear Check Machine Verification"},
+  {gid:"1215721899131714",name:"25-1046 TMMI Pillar Inov TR# Hyb Battery Prep Validation"},
+  {gid:"1211628112097618",name:"25-2058_GM Oshawa Bay12 Press Upgrade"},
+  {gid:"1211947767565365",name:"25-2070-2_GM SLP New Alignment Machine - GA-ALGN02"},
+  {gid:"1211836472211301",name:"25-2070-B_GM SLP New Alignment Machine Extra Trip"},
+  {gid:"1211707308390353",name:"25-2093_GM Arlington Revalidate B-Clearcoat Robot Zone"},
+  {gid:"1211836472211216",name:"25-2094-C_GM Lockport 5 Radiator Clip 4th Machine"},
+  {gid:"1211836472211234",name:"25-2094-D_GM Lockport 5 Radiator Clip 5th Machine"},
+  {gid:"1211836472211194",name:"25-2094-E_GM Lockport 5 Radiator Clip 6th Machine"},
+  {gid:"1211836472211255",name:"25-2094-E_GM Lockport 5 Radiator Clip Machine #3"},
+  {gid:"1211718891327897",name:"25-2094_GM Lockport 5 Radiator Clip Machines #2"},
+  {gid:"1211968843356353",name:"25-2096-B_GM Flint Frame Turnover Cell One RFTN02"},
+  {gid:"1211836471345967",name:"25-2096_GM Flint Frame Turnover Cell One RFTN01"},
+  {gid:"1212262465608824",name:"25-2097-2_GM DMAX Facility Engine Final Assembly & Test Line Return Trip"},
+  {gid:"1211850007295788",name:"25-2097_GM DMAX Facility Engine Final Assembly & Test Line (12 Stations)"},
+  {gid:"1211904163568286",name:"25-2098_GM Arlington RUST PSRA01A and ZAPS05 Zones Re-validation"},
+  {gid:"1211904163568309",name:"25-2099_GM Spring Hill Robotic Cradle Load Cell"},
+  {gid:"1211904163568358",name:"25-2100-B_GM Fort Wayne Conveyor Kit Rear Door Lines TDB02"},
+  {gid:"1211904163568332",name:"25-2100_GM Fort Wayne Conveyor Kit Rear Door Lines TDB01"},
+  {gid:"1211924195808524",name:"25-2101_GM Toledo GF8 Final Test Stands (2)"},
+  {gid:"1211940118789352",name:"25-2102_GM Marion Scan Cell"},
+  {gid:"1212076113208949",name:"25-2103_GM Factory Zero RUST 509 Cobot Install"},
+  {gid:"1212311238976796",name:"25-2107_GM Flint SpenTech RUST Robot Cells (3)"},
+  {gid:"1212385649326556",name:"25-2109_GM Marion BB4 Inkjet System"},
+  {gid:"1212385649326614",name:"25-2110_GM Flint GMT65 and GMT25/GMT30 Trim Skid Skillet System"},
+  {gid:"1212521743892670",name:"25-2111_GM Silao Glass Cell (1)"},
+  {gid:"1212521743899359",name:"25-2114_GM Arlington RUST VIN Etch Cell"},
+  {gid:"1211315622169216",name:"25-3014-1 Low Acid Processor RA"},
+  {gid:"1216047640201769",name:"25-3014-1 Low Acid Processor RA, V"},
+  {gid:"1216047647043634",name:"25-3016 Valhalla Block 2 Work"},
+  {gid:"1211697826946124",name:"25-3017 Line 1 Taper Guarding"},
+  {gid:"1212149491779100",name:"25-3020 Homogenizer Validation"},
+  {gid:"1212294942635291",name:"25-3021-1 MPS Subcarb Unit RA, Verification"},
+  {gid:"1212328838643222",name:"25-3022 Sanko Filler Machine RA and Trip"},
+  {gid:"1212558443618156",name:"25-3023 Valhalla Block 2 - New Lantech Stretch Wrapper"},
+  {gid:"1212558443618151",name:"25-3024 Valhalla Block 2 - New Liquibox BIB Filler"},
+  {gid:"1212617330157420",name:"25-3025 Line 1 Packer and Taper Validation/FAT Trip"},
+  {gid:"1211665519936903",name:"25-4012 Average VRC Validation"},
+  {gid:"1211665519936893",name:"25-4013 Lilly Ongoing Services"},
+  {gid:"1211228757496021",name:"25-4027 Vallejo Misc Equipment Validation"},
+  {gid:"1211673634949460",name:"25-4031 Olympic Steel 600T Blanking Press Upgrades"},
+  {gid:"1211673634949476",name:"25-4032 Olympic Steel Stamtec Blanking Press Safety Upgrade"},
+  {gid:"1211673634949272",name:"25-4032b Olympic Steel Stamtec Blanking Press"},
+  {gid:"1215721713846000",name:"25-4036 Ford Buffalo AP1 Validation"},
+  {gid:"1211673634949508",name:"25-4037 Ford AP4 & AP5 Press Dearborn Stamping"},
+  {gid:"1211293989908461",name:"25-4042 Large VRC Sistema"},
+  {gid:"1211293989908363",name:"25-4044 C2 Equipment Risk Assessment"},
+  {gid:"1215972454685247",name:"25-4046 Logan Al"},
+  {gid:"1211673634949616",name:"25-4046 Logan Alum. DC1 AM CoHE Upgrade"},
+  {gid:"1215721899131723",name:"25-4046-1 Logan Alum. DC1 AM CoHE Additional Documents"},
+  {gid:"1211673634949544",name:"25-4052 Skana Aluminum Cameron Slitter Review"},
+  {gid:"1211673634949525",name:"25-4052a Skana Aluminum Slitter Review"},
+  {gid:"1211673634949554",name:"25-4052b Skana Aluminum Wean Slitter Review"},
+  {gid:"1211673634949569",name:"25-4053 Skana Aluminum Cold Mill Review"},
+  {gid:"1211665519936873",name:"25-4055 Meccanica Design Verification"},
+  {gid:"1211665519936883",name:"25-4056 Safety Requirements Doc"},
+  {gid:"1211673634949492",name:"25-4060 Olympic Steel Misc RA & Design Review"},
+  {gid:"1211626846339507",name:"25-4072 CRIPPA Italy Tube Bending Machine Consulting"},
+  {gid:"1211710339251790",name:"25-4074 Concord Whole Site RA"},
+  {gid:"1211736587403789",name:"25-4075 Oshkosh South Press 34 RA"},
+  {gid:"1211751769667088",name:"25-4076 P&G Inwood Multiple Validations"},
+  {gid:"1214586855186887",name:"25-4077 Lilly RTP Site RA"},
+  {gid:"1214520093779346",name:"25-4077 Lilly RTP Site RA Travel"},
+  {gid:"1211778891924271",name:"25-4077a Lilly RTP R6, R7, R11 RA"},
+  {gid:"1215386160496500",name:"25-4077b Lilly RTP R6 Pack RA"},
+  {gid:"1215185539288507",name:"25-4077c Lilly RTP CPAL RA"},
+  {gid:"1215185539288522",name:"25-4077d Lilly RTP Bin Erector Robotic Cell RA"},
+  {gid:"1211842606694448",name:"25-4078 Doerfer Training Moline, IL"},
+  {gid:"1211843098637897",name:"25-4079 Lilly Consulting"},
+  {gid:"1211938605202450",name:"25-4080 Lilly RTP Site Scoping Trip"},
+  {gid:"1212071390669904",name:"25-4081 Uteco Press Consulting"},
+  {gid:"1212271100680596",name:"25-4083 Negri Bossi Injection Press Design Review"},
+  {gid:"1212328838643180",name:"25-4084 PFlow SLAM Sistema"},
+  {gid:"1212534976917327",name:"25-4085 Parker Alternative Method Controls Work"},
+  {gid:"1212534979755061",name:"25-4086 PACE Sistema SN-5341"},
+  {gid:"1211673634947041",name:"25-4090 Eagle Bend Consulti"},
+  {gid:"1211673634949777",name:"25-5011 LG On-Site Support T&M"},
+  {gid:"1211673634949796",name:"25-5012 LG Battery FA CNS SISTEMA"},
+  {gid:"1211673634949812",name:"25-5012a LG FA CNS Jig Formation Stacker SISTEMA"},
+  {gid:"1211673634949817",name:"25-5012b LG FA CNS Cell Pallet CNV SISTEMA"},
+  {gid:"1211673634949822",name:"25-5012c LG FA CNS Pallet Cleaning Machine SISTEMA"},
+  {gid:"1211673634949852",name:"25-5013 LG Battery FA EQCell SISTEMA"},
+  {gid:"1211673634949740",name:"25-5017 Honda Marysville MAP ST Laser Cell Val"},
+  {gid:"1211673634949617",name:"25-5023 LG Battery Validation Formation"},
+  {gid:"1211678134856970",name:"25-5023-1 LG Battery Validation Formation Additional Docs ECO"},
+  {gid:"1211673634949845",name:"25-5025 LG Battery FA CNS Validation Test Doc"},
+  {gid:"1211673634949857",name:"25-5026 Battery FA EQCELL Validation Test Docs"},
+  {gid:"1211673634949889",name:"25-5027 Battery Electrode Validation Test Doc"},
+  {gid:"1211673634949896",name:"25-5029 LG Module On-Site Consulting"},
+  {gid:"1212262234163036",name:"25-5030 Honda LG Consulting Formation LNS"},
+  {gid:"1213919165919315",name:"25-5030a Honda LG Formation ECO - HPCD"},
+  {gid:"1213919165919320",name:"25-5030b Honda LG Formation ECO - Jig"},
+  {gid:"1213919090058249",name:"25-5030c Honda LG Formation ECO - Degas"},
+  {gid:"1213919090058254",name:"25-5030d Honda LG Formation ECO - CDC DCIR"},
+  {gid:"1213919090058259",name:"25-5030e Honda LG Formation ECO - OCV"},
+  {gid:"1213919090058264",name:"25-5030f Honda LG Formation ECO - EOL"},
+  {gid:"1213919090058269",name:"25-5030g Honda LG Formation ECO - Selector"},
+  {gid:"1213919184313914",name:"25-5030h Honda LG LNS ECO - Lamination"},
+  {gid:"1213919222695251",name:"25-5030i Honda LG LNS ECO - Lami"},
+  {gid:"1213919222695256",name:"25-5030j Honda LG LNS ECO - Stacker"},
+  {gid:"1213129831172217",name:"26-1002 TMMTX Stamping Dejima Validation TEST DOCS only"},
+  {gid:"1213176559156955",name:"26-1003 TMMK Plastics TIMM1 Mold Cart Ver + Val Test Docs"},
+  {gid:"1216109243276636",name:"26-1003a TMMK TIM1 Mold Cart Drawing Update"},
+  {gid:"1213809444854259",name:"26-1006 TMMK Maverick Val"},
+  {gid:"1213809444854264",name:"26-1007 TMMK Plastics 311D Punch Ver + Val Test Docs"},
+  {gid:"1214487560133349",name:"26-1008 TX Paint RDS Robot Ver Val Docs"},
+  {gid:"1213201088065889",name:"26-2010_GM Flint Skillet Trim 1 Production Conveyor (GMT10)"},
+  {gid:"1213190275140569",name:"26-2011_GM Arlington RUST GLAS06 Cell"},
+  {gid:"1214993872319132",name:"26-2012_GM Marion RUST SK-1 Coil Lines Upgrade"},
+  {gid:"1213300522394707",name:"26-2012_GM Marion SK-1 Coil Lines Upgrade"},
+  {gid:"1213370209779100",name:"26-2013_GM Lake Orion RUST T1xx ZA170 Zone_Kuka"},
+  {gid:"1213405078728156",name:"26-2015_GM DMAX Engine Assembly Cell OP2220"},
+  {gid:"1213392931699760",name:"26-2016_GM Spring Hill Battery RUST EC600B01 Cell"},
+  {gid:"1213573865071724",name:"26-2018_GM Oshawa Pneumatic Press Cushion Consulting"},
+  {gid:"1213573797185705",name:"26-2019_GM Spring Hill LASD Replacement"},
+  {gid:"1213573797185748",name:"26-2020_GM Spring Hill ISS Replacement"},
+  {gid:"1213642856453741",name:"26-2021_GM Wentzville Cell Gates"},
+  {gid:"1213645209487758",name:"26-2022_GM Arlington New GLAS05"},
+  {gid:"1213735934039004",name:"26-2023_GM Plymouth Material Handling Robot Cell ZJ010B01 Upgrade"},
+  {gid:"1213899742251669",name:"26-2025_GM Toledo Wire Harness Validation & Force Testing at Atlas"},
+  {gid:"1213899742251679",name:"26-2026_GM Toledo Wire Harness Validation & Force Testing at GM Toledo"},
+  {gid:"1214581731386916",name:"26-2027-2_GM Arlington XL3 Press Partial Upgrade-Press 4"},
+  {gid:"1214583458510661",name:"26-2027-3_GM Arlington XL3 Press Partial Upgrade-Press 3"},
+  {gid:"1214583565636906",name:"26-2027-4_GM Arlington XL3 Press Partial Upgrade-Press 1, Press 2, FOL"},
+  {gid:"1213899742251688",name:"26-2027_GM Arlington XL3 Press Partial Upgrade-EOL and Press 5 Automation"},
+  {gid:"1214048758450361",name:"26-2028_GM Factory Zero RESS H5 Relocation Revalidation"},
+  {gid:"1214046595777847",name:"26-2029_GM Lansing Grand River Paint Shop Modifications"},
+  {gid:"1214046595777869",name:"26-2030_GM Lake Orion NEW Bodyshop Training Cell"},
+  {gid:"1214046595777889",name:"26-2031_GM Fort Wayne G5 Training Cell"},
+  {gid:"1214062081682540",name:"26-2032_GM Oshawa Bay 12 Various Press Line Upgrades Consulting"},
+  {gid:"1214075983589654",name:"26-2034_GM Lake Orion GA 2.0 System Cells_CEC"},
+  {gid:"1215778933826517",name:"26-2034_GM Lake Orion GA 2.0 System Cells_CEC (v2)"},
+  {gid:"1214075983589661",name:"26-2035_GM Lake Orion GA 2.0 System Cells_Kasa"},
+  {gid:"1214075983589668",name:"26-2036_GM Lake Orion GA 2.0 System Cells_Indicon"},
+  {gid:"1214237778877470",name:"26-2037_GM Marion Wheel Based Transporter"},
+  {gid:"1214301989863472",name:"26-2038_GM Oshawa RUST TC100 Vision Bin Pick Training Cell"},
+  {gid:"1214309751806002",name:"26-2039_Fort Wayne uMan Tooling"},
+  {gid:"1214391933271151",name:"26-2040_GM Lake Orion GA 2.0 System Cells_Standard"},
+  {gid:"1214553358633487",name:"26-2041_GM LGR RUST Fanuc Prime Exterior Zone Beta P55 Robots"},
+  {gid:"1214815103481506",name:"26-2042_GM Spring Hill Robotic Roof Glass Delivery Cell Validation and Consulting"},
+  {gid:"1215285425773553",name:"26-2044_GM Lockport D2 Temperature Insertion Cobot Cell"},
+  {gid:"1215634392419847",name:"26-2045_GM Lake Orion Frame Delivery Skid System_ASI"},
+  {gid:"1215633732975042",name:"26-2046_GM Lake Orion Turntables"},
+  {gid:"1215778997200413",name:"26-2047a_GM Defiance Mod 5 & 6 Load & Unload Cells_EVEN"},
+  {gid:"1215778933826424",name:"26-2047b_GM Defiance Mod 5 & 6 Load & Unload Cells_EVEN"},
+  {gid:"1215778933826433",name:"26-2047c_GM Defiance Mod 5 & 6 Load & Unload Cells_EVEN"},
+  {gid:"1215778933826442",name:"26-2047d_GM Defiance Mod 5 & 6 Load & Unload Cells_EVEN"},
+  {gid:"1215778933826485",name:"26-2048_GM Toledo Robot and Conveyor System"},
+  {gid:"1215877346718335",name:"26-2049_GM Oshawa Bay 5 Controls Upgrade"},
+  {gid:"1215909561435899",name:"26-2050_Pontiac eMotor Lab TIG Weld Cell"},
+  {gid:"1215909730662456",name:"26-2051_GM Flint Piston Stuffing Cells"},
+  {gid:"1216179473360431",name:"26-2052_GM Fairfax Robotic Automation Cells"},
+  {gid:"1216179473360439",name:"26-2053_GM Fairfax New ASRS SRM Cranes"},
+  {gid:"1213043600999207",name:"26-3004 Remaining Can Line Remediation"},
+  {gid:"1216039150778351",name:"26-3006 WC200 Steam Capper RA"},
+  {gid:"1216047689121763",name:"26-3008-1 Potassium Sorbate Skid RA/Design Review"},
+  {gid:"1213176546174863",name:"26-3008-2 Potassium Sorbate Skid Validation"},
+  {gid:"1213576419649493",name:"26-3009-2 Floor Vacuum System RA"},
+  {gid:"1213603836861661",name:"26-3009-3 Mezzanine Vacuum System RA"},
+  {gid:"1213577887503871",name:"26-3009-4 Dust Control Booth RA"},
+  {gid:"1213577887503876",name:"26-3009-5 Metal Detection X-Ray System RA"},
+  {gid:"1213645259294653",name:"26-3010 APV Homogenizer Validation"},
+  {gid:"1213915911897350",name:"26-3011 Line 2 Taper Validation"},
+  {gid:"1211867591414396",name:"26-4000 SIA - Subaru Indiana TF-A Press RA"},
+  {gid:"1212396463627195",name:"26-4001 SIA - Subaru Indiana TF-B Press RA"},
+  {gid:"1212396463627202",name:"26-4002 SIA - Subaru Indiana TF-C Press RA"},
+  {gid:"1212396463658972",name:"26-4003 SIA - Subaru Indiana TF-D Press RA"},
+  {gid:"1212396463658979",name:"26-4004 SIA - Subaru Indiana TF-G Press RA"},
+  {gid:"1212396463658986",name:"26-4005 SIA - Subaru Indiana TF-H Press RA"},
+  {gid:"1212407173072054",name:"26-4006 SIA - Subaru Indiana BL-1 Blanking Line RA"},
+  {gid:"1212407173172593",name:"26-4008 SIA - Subaru Indiana IJ-1 Injection Mold RA"},
+  {gid:"1212407173172604",name:"26-4009 SIA - Subaru Indiana IJ-2 Injection Mold RA"},
+  {gid:"1212407173172615",name:"26-4010 SIA - Subaru Indiana IJ-4 Injection Mold RA"},
+  {gid:"1212425491032440",name:"26-4011 SIA - Subaru Indiana IJ-5 Injection Mold RA"},
+  {gid:"1213208864723535",name:"26-4017 Lilly Kenosha RA"},
+  {gid:"1212916288586146",name:"26-4018 Lilly Kenosha Consulting Time"},
+  {gid:"1213026926802024",name:"26-4023 GCG - CLL Arc Flash Study Audit"},
+  {gid:"1212996565308650",name:"26-4025 John Deere Trumpf 7030 Laser Cut RA"},
+  {gid:"1213219426573681",name:"26-4025b Harvester Works Trumpf 7030 Laser Ver & Val"},
+  {gid:"1213087104346312",name:"26-4026 ZON/ZONXL Sistema Report"},
+  {gid:"1213087104346322",name:"26-4027 SLAM, ZON, and ZONXL RAs"},
+  {gid:"1213301063898453",name:"26-4030 Dexco Racks RA - Leola, PA"},
+  {gid:"1213341615869905",name:"26-4031 Nucor WV Hot Mill Ver"},
+  {gid:"1213341615871032",name:"26-4033 Reynolds Line 3 Separator Carriage Retrofit"},
+  {gid:"1213363122227452",name:"26-4034 Magna LexaMar PSHSR"},
+  {gid:"1213458643300080",name:"26-4035 W Line Cooling Tunnel Validation"},
+  {gid:"1213471036397388",name:"26-4036 PFlow Lift Validation"},
+  {gid:"1213495041301669",name:"26-4037 Lilly Livers Consulting"},
+  {gid:"1213623246663248",name:"26-4038-1 TE-Richards Irvington NJ Press RA"},
+  {gid:"1213625104340695",name:"26-4038-1 TE-Richards Irvington NJ Press RA (v2)"},
+  {gid:"1214201821815636",name:"26-4038-2 TE-Richards Irvington NJ Press Safety Review and SFRS"},
+  {gid:"1214351950047738",name:"26-4039 Antaya Rhode Island IMM RA"},
+  {gid:"1214045027049673",name:"26-4040 John Deere 514 Weld Cell Validation"},
+  {gid:"1213636867329592",name:"26-4041 Imeg Corp - JD Windshield Wash Fluid Fill RA"},
+  {gid:"1213729189345987",name:"26-4042 Lotte Aluminium LOTO evaluation"},
+  {gid:"1213748695609079",name:"26-4043-1 P&G Case Taper RA"},
+  {gid:"1213748695609084",name:"26-4043-2 P&G Case Taper Validation"},
+  {gid:"1213835983962326",name:"26-4044 Greensboro SVTP"},
+  {gid:"1213878147130581",name:"26-4045 P&G TSC6 Line Validation"},
+  {gid:"1213963778478737",name:"26-4046 Hagihara Paper Slitter Design Review"},
+  {gid:"1214073905345412",name:"26-4048 P&G Stretch Wrapper SVP"},
+  {gid:"1214315059736151",name:"26-4049a Lilly Concord Cross-Over RA"},
+  {gid:"1214847356853146",name:"26-4049b Lilly Concord Exchanger RAs"},
+  {gid:"1215386160496492",name:"26-4050 Zurich Rockline RAs"},
+  {gid:"1215386160496496",name:"26-4051 Zurich Novolex Guarding"},
+  {gid:"1214907112833038",name:"26-4052-1 CS Doser RA"},
+  {gid:"1214907112833043",name:"26-4052-2 CS Doser Validation"},
+  {gid:"1214907394448142",name:"26-4053 RC2 Risk Assessment"},
+  {gid:"1215835131877059",name:"26-4053 RC2 Risk Assessment (copy)"},
+  {gid:"1215173057722796",name:"26-4054 P&G Iowa City SVPs and Support"},
+  {gid:"1215972454685230",name:"26-4055 JD Bulk Storage"},
+  {gid:"1215295587227104",name:"26-4055 JD PSM Bulk Storage 1234yf"},
+  {gid:"1215313046824802",name:"26-4056 Clorox Consulting Services"},
+  {gid:"1215343392923115",name:"26-4057 Zurich Cow Rendering Audit"},
+  {gid:"1215600775281413",name:"26-4058a Ford AP4 Press Risk Assessment"},
+  {gid:"1215678356002016",name:"26-4058b Ford AP4 Validation"},
+  {gid:"1215638006161349",name:"26-4059 GCG Arc Flash Study - Harmony PA"},
+  {gid:"1215724778266793",name:"26-4060 TE Richards CD-023 Walsh Press Safety Upgrade"},
+  {gid:"1215724778266806",name:"26-4061 TE Richards CD-027 Walsh Press Safety Upgrade"},
+  {gid:"1215726156775322",name:"26-4062 TE Richards CD-019 Walsh Press Safety Upgrade"},
+  {gid:"1215726258904326",name:"26-4063 TE Richards CD-022 Walsh Press Safety Upgrade"},
+  {gid:"1215726258904349",name:"26-4064 TE Richards MV-0026 Safety Upgrade"},
+  {gid:"1215724778266851",name:"26-4065 TE Richards MV-0086 Safety Upgrade"},
+  {gid:"1215726258904373",name:"26-4066 TE Richards MV-0025 Safety Upgrade"},
+  {gid:"1215724778266862",name:"26-4067 TE Richards MV-0085 Safety Upgrade"},
+  {gid:"1215724778266867",name:"26-4068 TE Richards CD-014 Walsh Press Safety Upgrade"},
+  {gid:"1215724778266817",name:"26-4069 Lilly RTP RA Training"},
+  {gid:"1215773014337831",name:"26-4070 Robert Dietrick Surface Grinder Retrofit"},
+  {gid:"1215814687250741",name:"26-4071 Zurich Phoenix Scoping Trip"},
+  {gid:"1215972606990547",name:"26-4072 Ford Louisville Auto Vehicle Marshalling RA"},
+  {gid:"1213381331712289",name:"26-5001 Honda HSO Marysville RA Training"},
+  {gid:"1213381331712299",name:"26-5003 Honda Anna Engine RA Training"},
+  {gid:"1213381331712304",name:"26-5004 Honda Indiana FS Training"},
+  {gid:"1213436122089109",name:"26-5005 Honda Alab Risk Assessment Training"},
+  {gid:"1214076621328171",name:"26-5006 Honda LG Module ECO (schematic updates)"},
+  {gid:"1214076621328176",name:"26-5007 Honda LG Electrode Mixing ECO (schematic updates)"},
+  {gid:"1215972454685240",name:"26-5008 Honda AL Bumper Regrind Val"},
+  {gid:"1214076621328275",name:"26-5009 Honda LG PKG ECO (updated Schematics)"},
+  {gid:"1215778716953510",name:"26-5010 Honda Trans Plant RA Training"},
+  {gid:"1215814906074033",name:"Asana Time"},
+  {gid:"1215386160343531",name:"Asana Work"},
+  {gid:"1215814906074029",name:"General Admin/Meetings"},
+  {gid:"1215386160343535",name:"Misc Admin/Meetings"},
+  {gid:"1215814906074037",name:"Other Project Work"},
+  {gid:"1211428725188117",name:"Project Tracking_Main (Travel)"},
+  {gid:"1215943625945315",name:"Risk Assessment Project Test 6/22/26"},
+  {gid:"1216037927215298",name:"Toyota Test 6/25/26"},
+  {gid:"1216122614402189",name:"Toyota Test Validation Project 6.29.26"}
+];DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>White Horse Safety – Time Tracker</title>
+
+<!-- MSAL.js for Microsoft 365 login -->
+<script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
+
+<style>
+  :root {
+    --primary: #1a56a4;
+    --primary-dark: #134080;
+    --success: #1D9E75;
+    --danger: #C0392B;
+    --warning-bg: #FAEEDA;
+    --warning-text: #854F0B;
+    --info-bg: #E6F1FB;
+    --info-text: #185FA5;
+    --green-bg: #EAF3DE;
+    --green-text: #3B6D11;
+    --border: #E2E0D8;
+    --bg: #F7F6F3;
+    --bg-card: #FFFFFF;
+    --text: #1A1916;
+    --text-secondary: #6B6965;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ---- AUTH SCREEN ---- */
+  #auth-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+  .auth-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 2.5rem; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,0.07); }
+  .auth-logo { font-size: 28px; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+  .auth-subtitle { color: var(--text-secondary); font-size: 14px; margin-bottom: 2rem; }
+  .ms-btn { display: inline-flex; align-items: center; gap: 10px; background: var(--primary); color: #fff; border: none; border-radius: var(--radius-sm); padding: 12px 24px; font-size: 15px; font-weight: 500; cursor: pointer; width: 100%; justify-content: center; }
+  .ms-btn:hover { background: var(--primary-dark); }
+  .ms-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+  #auth-error { color: var(--danger); font-size: 13px; margin-top: 1rem; display: none; }
+
+  /* ---- SETUP SCREEN ---- */
+  #setup-screen { display: none; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+  .setup-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; max-width: 500px; width: 100%; }
+  .setup-card h2 { font-size: 18px; margin-bottom: 6px; }
+  .setup-card p { color: var(--text-secondary); font-size: 13px; margin-bottom: 1.5rem; }
+  .setup-field { margin-bottom: 1rem; }
+  .setup-field label { font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px; }
+  .setup-field input, .setup-field select { width: 100%; font-size: 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text); }
+  .setup-steps { background: var(--bg); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.25rem; font-size: 13px; color: var(--text-secondary); }
+  .setup-steps ol { padding-left: 1.25rem; }
+  .setup-steps li { margin-bottom: 6px; }
+  .setup-steps code { background: #E8E6DF; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+
+  /* ---- MAIN APP ---- */
+  #app { display: none; max-width: 760px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+  .app-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px; }
+  .app-title { font-size: 20px; font-weight: 700; color: var(--primary); }
+  .user-pill { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+  .user-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+  .btn-signout { font-size: 12px; color: var(--text-secondary); background: none; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 10px; cursor: pointer; }
+
+  .group-bar { display: flex; align-items: center; gap: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .group-bar label { font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .group-bar select { font-size: 13px; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); }
+  .period-badge { margin-left: auto; font-size: 12px; color: var(--text-secondary); background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 3px 10px; white-space: nowrap; }
+
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; overflow-x: auto; }
+  .tab { padding: 9px 14px; font-size: 13px; cursor: pointer; background: none; border: none; color: var(--text-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+  .card-title { font-size: 14px; font-weight: 600; margin-bottom: 1rem; }
+
+  .btn { padding: 8px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: none; cursor: pointer; font-size: 13px; color: var(--text); font-family: var(--font); }
+  .btn:hover { background: var(--bg); }
+  .btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .btn.primary:hover { background: var(--primary-dark); }
+  .btn.success { background: var(--success); color: #fff; border-color: var(--success); }
+  .btn.danger { color: var(--danger); border-color: var(--danger); }
+  .btn.sm { padding: 4px 10px; font-size: 12px; }
+
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 500; white-space: nowrap; }
+  .badge-office  { background: var(--info-bg);    color: var(--info-text); }
+  .badge-travel  { background: var(--warning-bg); color: var(--warning-text); }
+  .badge-onsite  { background: var(--green-bg);   color: var(--green-text); }
+  .badge-pending  { background: var(--warning-bg); color: var(--warning-text); }
+  .badge-approved { background: var(--green-bg);   color: var(--green-text); }
+  .badge-draft    { background: #F1EFE8; color: #5F5E5A; }
+  .badge-recalled { background: #F1EFE8; color: #5F5E5A; }
+
+  /* Timer */
+  .timer-wrap { text-align: center; padding: 1rem 0; }
+  .timer-display { font-size: 44px; font-weight: 600; letter-spacing: 3px; color: var(--text); }
+  .timer-running { color: var(--success); }
+  .timer-status { font-size: 13px; color: var(--text-secondary); margin-top: 6px; }
+  .type-toggle { display: flex; gap: 8px; justify-content: center; margin: 1rem 0; flex-wrap: wrap; }
+  .type-btn { padding: 7px 18px; border-radius: 99px; border: 1px solid var(--border); background: none; cursor: pointer; font-size: 13px; color: var(--text-secondary); font-family: var(--font); }
+  .type-btn.active-office { background: var(--info-bg);    color: var(--info-text);    border-color: #378ADD; }
+  .type-btn.active-travel { background: var(--warning-bg); color: var(--warning-text); border-color: #BA7517; }
+  .type-btn.active-onsite { background: var(--green-bg);   color: var(--green-text);   border-color: #639922; }
+
+  /* Project search */
+  .proj-wrap { position: relative; }
+  .proj-input { width: 100%; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text); outline: none; font-family: var(--font); }
+  .proj-input:focus { border-color: var(--primary); }
+  .proj-dd { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); max-height: 220px; overflow-y: auto; z-index: 200; display: none; box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+  .proj-dd.open { display: block; }
+  .proj-opt { padding: 9px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text); }
+  .proj-opt:last-child { border-bottom: none; }
+  .proj-opt:hover, .proj-opt.focused { background: var(--bg); }
+  .proj-opt mark { background: #FAEEDA; color: #854F0B; border-radius: 2px; padding: 0 1px; }
+  .proj-none { padding: 12px; font-size: 13px; color: var(--text-secondary); text-align: center; }
+
+  /* Period grid */
+  .period-grid-wrap { margin-bottom: 1rem; }
+  .week-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 5px; }
+  .week-header { font-size: 11px; color: var(--text-secondary); padding: 4px 0 2px; font-weight: 500; }
+  .day-cell { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 4px; text-align: center; cursor: pointer; background: var(--bg-card); transition: border-color 0.1s; }
+  .day-cell:hover { border-color: var(--primary); }
+  .day-cell .dn { font-size: 10px; color: var(--text-secondary); }
+  .day-cell .dd { font-size: 11px; color: var(--text-secondary); }
+  .day-cell .dh { font-size: 13px; font-weight: 600; margin-top: 2px; }
+  .day-cell .dh.has { color: var(--success); }
+  .day-cell.today { border-color: var(--primary); }
+  .day-cell.sel { background: var(--info-bg); border-color: var(--primary); }
+
+  /* Form */
+  .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 10px; }
+  .form-field { display: flex; flex-direction: column; gap: 4px; }
+  .form-field label { font-size: 12px; color: var(--text-secondary); }
+  .form-field input, .form-field select { font-size: 13px; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text); font-family: var(--font); }
+  .form-field input:focus, .form-field select:focus { outline: none; border-color: var(--primary); }
+  .form-box { background: var(--bg); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1rem; }
+  .form-box-title { font-size: 13px; font-weight: 500; margin-bottom: 10px; }
+
+  /* Table */
+  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  .tbl th { text-align: left; padding: 7px 8px; font-size: 11px; font-weight: 500; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+  .tbl td { padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tbl tr:last-child td { border-bottom: none; }
+
+  /* Summary metrics */
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.25rem; }
+  .metric { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .metric .ml { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+  .metric .mv { font-size: 22px; font-weight: 600; }
+  .metric .ms { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+  /* Approval card */
+  .approval-item { padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .approval-item:last-child { border-bottom: none; }
+  .approval-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+  .approval-actions { display: flex; gap: 8px; align-self: center; }
+
+  /* Sync indicator */
+  .sync-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--border); color: var(--text-secondary); }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+  .sync-dot.syncing { background: #E8A000; animation: pulse 1s infinite; }
+  .sync-dot.error { background: var(--danger); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .empty { text-align: center; padding: 2.5rem; color: var(--text-secondary); font-size: 14px; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1A1916; color: #fff; padding: 10px 18px; border-radius: var(--radius-sm); font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1000; max-width: 320px; }
+  .toast.show { opacity: 1; }
+
+  /* Rate cards */
+  .rate-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+  .rate-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; text-align: center; }
+  .rate-card .rc-lbl { font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; }
+  .rate-card .rc-val { display: flex; align-items: center; justify-content: center; gap: 3px; }
+  .rate-card .rc-val span { font-size: 13px; color: var(--text-secondary); }
+  .rate-card input { width: 80px; text-align: center; font-size: 17px; font-weight: 600; border: none; background: none; color: var(--text); outline: none; font-family: var(--font); }
+  .rate-card input:focus { background: var(--bg); border-radius: 4px; }
+
+  @media (max-width: 500px) {
+    .metrics { grid-template-columns: 1fr 1fr; }
+    .rate-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== AUTH SCREEN ========== -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">🐴 White Horse Safety</div>
+    <div class="auth-subtitle">Time Tracker &amp; Timesheet Submission</div>
+    <button class="ms-btn" onclick="signIn()">
+      <svg viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+        <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+        <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+        <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+      </svg>
+      Sign in with Microsoft 365
+    </button>
+    <div id="auth-error">Sign-in failed. Please try again or contact your IT admin.</div>
+    <p style="font-size:11px;color:var(--text-secondary);margin-top:1.5rem;">
+      Uses your existing White Horse Safety Microsoft 365 account.<br/>
+      No separate password required.
+    </p>
+  </div>
+</div>
+
+<!-- ========== SETUP SCREEN ========== -->
+<div id="setup-screen">
+  <div class="setup-card">
+    <h2>⚙️ One-time Setup</h2>
+    <p>An IT admin needs to complete this once. After that, employees just sign in.</p>
+    <div class="setup-steps">
+      <ol>
+        <li>Go to <strong>portal.azure.com</strong> → Microsoft Entra ID → App registrations → <strong>New registration</strong></li>
+        <li>Name it <code>WHS Time Tracker</code>, set account type to <em>Single tenant</em></li>
+        <li>Add a redirect URI: <strong>Single-page application (SPA)</strong> → paste the URL where this file is hosted</li>
+        <li>Under API permissions, add <strong>Microsoft Graph → Delegated</strong>: <code>User.Read</code>, <code>Sites.ReadWrite.All</code></li>
+        <li>Grant admin consent for your tenant</li>
+        <li>Copy the <strong>Application (client) ID</strong> and <strong>Directory (tenant) ID</strong> into the fields below</li>
+        <li>In SharePoint, create three lists named exactly: <code>TimesheetEntries</code>, <code>Timesheets</code>, and <code>Expenses</code></li>
+      </ol>
+    </div>
+    <div class="setup-field">
+      <label>Azure App Client ID</label>
+      <input type="text" id="setup-client-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+    </div>
+    <div class="setup-field">
+      <label>Azure Tenant ID</label>
+      <input type="text" id="setup-tenant-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+    </div>
+    <div class="setup-field">
+      <label>SharePoint Site (auto-detected)</label>
+      <input type="text" id="setup-site" value="whitehorsesafety.sharepoint.com" readonly style="background:var(--bg);color:var(--text-secondary);" />
+    </div>
+    <button class="btn primary" style="width:100%; margin-top:0.5rem;" onclick="saveSetup()">Save &amp; Continue</button>
+    <p style="font-size:11px;color:var(--text-secondary);margin-top:1rem;text-align:center;">Settings are saved in this browser. Each device needs this done once.</p>
+  </div>
+</div>
+
+<!-- ========== MAIN APP ========== -->
+<div id="app">
+  <div class="toast" id="toast"></div>
+
+  <div class="app-header">
+    <div class="app-title">🐴 WHS Time Tracker</div>
+    <div class="user-pill">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <span id="user-name">Loading…</span>
+      <span id="user-pill-extra"></span>
+      <span class="sync-badge"><span class="sync-dot" id="sync-dot"></span><span id="sync-label">Synced</span></span>
+      <button class="btn-signout" onclick="signOut()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="group-bar">
+    <label>Pay group:</label>
+    <select id="pay-group" onchange="onGroupChange()">
+      <option value="B">Group B</option>
+      <option value="A">Group A</option>
+    </select>
+    <span class="period-badge" id="period-badge">Loading…</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('clock')">⏱ Clock in/out</button>
+    <button class="tab" onclick="switchTab('manual')">📅 Log hours</button>
+    <button class="tab" onclick="switchTab('timesheets')">📄 Timesheets</button>
+    <button class="tab admin-only-tab" id="approvals-tab-btn" onclick="switchTab('approvals')" style="display:none;">✅ Approvals <span id="pend-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:1px 6px;font-size:11px;margin-left:3px;"></span></button>
+    <button class="tab" onclick="switchTab('expenses')">🧾 Expenses</button>
+  <button class="tab admin-only-tab" onclick="switchTab('reports')" style="display:none;">📊 Reports</button>
+  <button class="tab" onclick="switchTab('rates')">⚙️ Rates</button>
+  </div>
+
+  <!-- CLOCK IN/OUT -->
+  <div class="section active" id="section-clock">
+    <div class="card">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+        <div class="form-field" style="min-width:240px;flex:1;">
+          <label>Project</label>
+          <div class="proj-wrap">
+            <input class="proj-input" id="clk-proj-in" placeholder="Type project # or name…" autocomplete="off"
+              oninput="filterP('clk')" onfocus="openP('clk')" onblur="closeP('clk')" onkeydown="navP(event,'clk')" />
+            <input type="hidden" id="clk-proj-gid" />
+            <div class="proj-dd" id="clk-proj-dd"></div>
+          </div>
+        </div>
+        <div class="form-field" style="min-width:160px;flex:1;">
+          <label>Notes (optional)</label>
+          <input type="text" id="clk-notes" placeholder="What are you working on?" />
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--text-secondary);text-align:center;margin-bottom:6px;">Hour type</p>
+      <div class="type-toggle">
+        <button class="type-btn active-office" id="ct-office" onclick="setCT('office')">🏢 Office</button>
+        <button class="type-btn" id="ct-travel" onclick="setCT('travel')">✈️ Travel</button>
+        <button class="type-btn" id="ct-onsite" onclick="setCT('onsite')">📍 Onsite</button>
+      </div>
+      <div class="timer-wrap">
+        <div class="timer-display" id="timer">00:00:00</div>
+        <div class="timer-status" id="timer-status">Not clocked in</div>
+      </div>
+      <div style="text-align:center;margin-top:1rem;">
+        <button class="btn success" id="clk-btn" onclick="toggleClock()" style="min-width:140px;">Clock in</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Today's entries</div>
+      <div id="today-list"></div>
+    </div>
+  </div>
+
+  <!-- LOG HOURS -->
+  <div class="section" id="section-manual">
+    <div class="card">
+      <div class="card-title">Pay period: <span id="period-label" style="font-weight:400;color:var(--text-secondary);"></span></div>
+      <div class="period-grid-wrap" id="period-grid"></div>
+      <div class="form-box">
+        <div class="form-box-title" id="sel-day-label">Select a day above to log hours</div>
+        <div class="form-row">
+          <div class="form-field"><label>Hours</label><input type="number" id="m-hrs" min="0" max="24" step="0.5" placeholder="0" style="width:70px;" /></div>
+          <div class="form-field"><label>Type</label>
+            <select id="m-type"><option value="office">🏢 Office</option><option value="travel">✈️ Travel</option><option value="onsite">📍 Onsite</option></select>
+          </div>
+          <div class="form-field" style="min-width:220px;flex:1;">
+            <label>Project</label>
+            <div class="proj-wrap">
+              <input class="proj-input" id="man-proj-in" placeholder="Type project # or name…" autocomplete="off"
+                oninput="filterP('man')" onfocus="openP('man')" onblur="closeP('man')" onkeydown="navP(event,'man')" />
+              <input type="hidden" id="man-proj-gid" />
+              <div class="proj-dd" id="man-proj-dd"></div>
+            </div>
+          </div>
+          <div class="form-field" style="flex:1;min-width:110px;"><label>Notes</label><input type="text" id="m-notes" placeholder="Optional" /></div>
+          <button class="btn primary" onclick="addEntry()" style="height:34px;align-self:flex-end;">Add</button>
+        </div>
+      </div>
+      <div id="period-entry-list"></div>
+    </div>
+  </div>
+
+  <!-- TIMESHEETS -->
+  <div class="section" id="section-timesheets">
+    <div class="metrics">
+      <div class="metric"><div class="ml">Current period</div><div class="mv" id="ts-cur">0h</div><div class="ms" id="ts-cur-est"></div></div>
+      <div class="metric"><div class="ml">Previous period</div><div class="mv" id="ts-prev">—</div></div>
+      <div class="metric"><div class="ml">Pending approval</div><div class="mv" id="ts-pend">0</div></div>
+    </div>
+    <div class="card" id="ts-breakdown" style="display:none;">
+      <div class="card-title" style="margin-bottom:8px;">Current period breakdown</div>
+      <div id="ts-type-summ" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <div class="card-title" style="margin:0;">All timesheets</div>
+        <button class="btn primary" onclick="submitTimesheet()">Submit period ↗</button>
+      </div>
+      <table class="tbl">
+        <thead><tr><th style="width:24%">Period</th><th style="width:9%">Hrs</th><th style="width:9%">Grp</th><th style="width:22%">Projects</th><th style="width:20%">Types</th><th style="width:10%">Status</th><th style="width:6%"></th></tr></thead>
+        <tbody id="ts-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- APPROVALS -->
+  <div class="section" id="section-approvals">
+    <div class="card">
+      <div class="card-title">Pending approvals</div>
+      <div id="appr-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="color:var(--text-secondary);font-weight:400;">Approved history</div>
+      <div id="appr-history"></div>
+    </div>
+  </div>
+
+  <!-- EXPENSES -->
+  <div class="section" id="section-expenses">
+    <div class="card">
+      <div class="card-title">Submit Travel Expenses</div>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:1rem;">Log expenses for the current pay period. Receipts can be noted and submitted with your timesheet.</p>
+      <div class="form-box">
+        <div class="form-row">
+          <div class="form-field"><label>Date</label><input type="date" id="exp-date" style="font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);" /></div>
+          <div class="form-field" style="min-width:180px;flex:1;">
+            <label>Project</label>
+            <div class="proj-wrap">
+              <input class="proj-input" id="exp-proj-in" placeholder="Type project # or name…" autocomplete="off"
+                oninput="filterP('exp')" onfocus="openP('exp')" onblur="closeP('exp')" onkeydown="navP(event,'exp')" />
+              <input type="hidden" id="exp-proj-gid" />
+              <div class="proj-dd" id="exp-proj-dd"></div>
+            </div>
+          </div>
+          <div class="form-field">
+            <label>Category</label>
+            <select id="exp-cat" style="font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+              <option value="mileage">🚗 Mileage</option>
+              <option value="airfare">✈️ Airfare</option>
+              <option value="hotel">🏨 Hotel</option>
+              <option value="meals">🍽️ Meals</option>
+              <option value="rental">🚙 Car Rental</option>
+              <option value="parking">🅿️ Parking/Tolls</option>
+              <option value="other">📋 Other</option>
+            </select>
+          </div>
+          <div class="form-field"><label>Amount ($)</label><input type="number" id="exp-amount" min="0" step="0.01" placeholder="0.00" style="width:90px;font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);" /></div>
+          <div class="form-field" style="flex:1;min-width:120px;"><label>Description</label><input type="text" id="exp-desc" placeholder="e.g. Flight to Detroit" style="font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);width:100%;" /></div>
+          <button class="btn primary" onclick="addExpense()" style="height:34px;align-self:flex-end;">Add</button>
+        </div>
+      </div>
+      <div id="expense-list"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <div>
+          <div class="card-title" style="margin:0;">Period expense total</div>
+          <div style="font-size:22px;font-weight:600;margin-top:4px;" id="exp-total">$0.00</div>
+        </div>
+        <button class="btn primary" onclick="submitExpenses()">Submit expenses ↗</button>
+      </div>
+      <p style="font-size:12px;color:var(--text-secondary);">Expenses are submitted to <strong>Ted Sberna Jr, Mike Sberna, or Ryan Klitzke</strong> along with your timesheet for the current pay period.</p>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div class="section" id="section-reports">
+    <div class="card">
+      <div class="card-title">Hours by project</div>
+      <div class="form-row" style="margin-bottom:1rem;">
+        <div class="form-field"><label>Filter by project</label><input type="text" id="rpt-proj-filter" placeholder="Type to filter…" oninput="renderReports()" style="font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);min-width:200px;" /></div>
+        <div class="form-field"><label>From</label><input type="date" id="rpt-from" oninput="renderReports()" style="font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);" /></div>
+        <div class="form-field"><label>To</label><input type="date" id="rpt-to" oninput="renderReports()" style="font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);" /></div>
+        <button class="btn" onclick="clearReportFilters()" style="height:34px;align-self:flex-end;">Clear</button>
+      </div>
+      <div id="rpt-by-project"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Hours by employee</div>
+      <div id="rpt-by-employee"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Hours by type</div>
+      <div id="rpt-by-type"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">All time entries</div>
+      <div id="rpt-all-entries"></div>
+    </div>
+  </div>
+
+  <!-- RATES -->
+  <div class="section" id="section-rates">
+    <div class="card">
+      <div class="card-title">Hourly rates by type</div>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:1.25rem;">Click a value to edit. Rates are used to calculate estimated earnings on timesheet submissions.</p>
+      <div class="rate-grid">
+        <div class="rate-card"><div class="rc-lbl"><span class="badge badge-office">🏢 Office</span></div><div class="rc-val"><span>$</span><input type="number" id="r-office" min="0" step="0.01" value="75" onchange="saveRates()" /><span>/hr</span></div></div>
+        <div class="rate-card"><div class="rc-lbl"><span class="badge badge-travel">✈️ Travel</span></div><div class="rc-val"><span>$</span><input type="number" id="r-travel" min="0" step="0.01" value="95" onchange="saveRates()" /><span>/hr</span></div></div>
+        <div class="rate-card"><div class="rc-lbl"><span class="badge badge-onsite">📍 Onsite</span></div><div class="rc-val"><span>$</span><input type="number" id="r-onsite" min="0" step="0.01" value="110" onchange="saveRates()" /><span>/hr</span></div></div>
+      </div>
+    </div>
+    <div class="card"><div class="card-title">Current period earnings estimate</div><div id="rates-summ"></div></div>
+  </div>
+</div>
+
+<script>
+// =====================================================================
+// CONFIGURATION  (filled by setup screen or pre-filled by IT admin)
+// =====================================================================
+var CFG = (function() { try { return JSON.parse(localStorage.getItem('whs_cfg') || '{}'); } catch(e) { return {}; } })();
+const SP_HOST = 'whitehorsesafety.sharepoint.com';
+const ADMINS = [
+  'ted.s@whitehorsesafety.com',       // Ted Sberna Jr
+  'ryan.klitzke@whitehorsesafety.com', // Ryan Klitzke
+  'mike@whitehorsesafety.com'          // Mike Sberna
+];
+const APPROVER_NAME = 'Ted Sberna Jr, Mike Sberna, or Ryan Klitzke';
+function isAdmin() { return ADMINS.includes((currentAccount?.username || '').toLowerCase()); }
+const SP_SITE_PATH = '/'; // root site — adjust if needed
+const ENTRIES_LIST = 'TimesheetEntries';
+const TIMESHEETS_LIST = 'Timesheets';
+const EXPENSES_LIST = 'Expenses';
+
+// =====================================================================
+// PAY PERIOD LOGIC
+// =====================================================================
+const MS_DAY = 86400000, MS_PERIOD = 14 * MS_DAY;
+const ANCHORS = { B: new Date('2026-06-22T00:00:00'), A: new Date('2026-06-29T00:00:00') };
+
+function getPeriodStart(group, ref) {
+  const anchor = ANCHORS[group], diff = new Date(ref) - anchor;
+  return new Date(anchor.getTime() + Math.floor(diff / MS_PERIOD) * MS_PERIOD);
+}
+function getPeriodEnd(start) { return new Date(start.getTime() + 13 * MS_DAY); }
+function isoDate(d) { return new Date(d).toISOString().slice(0, 10); }
+function fmtDate(d) { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+function fmtDateFull(d) { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+function pad(n) { return String(n).padStart(2, '0'); }
+function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function inPeriod(dateStr, start, end) { const d = new Date(dateStr + 'T00:00:00'); return d >= start && d <= end; }
+function getGroup() { return document.getElementById('pay-group')?.value || 'B'; }
+
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const TL = { office: 'Office', travel: 'Travel', onsite: 'Onsite' };
+
+// =====================================================================
+// ASANA PROJECTS (full list baked in)
+// =====================================================================
+const PROJECTS = [
+  {gid:"1211736587403789",name:"25-4075 Oshkosh South Press 34 RA"},{gid:"1215313046824802",name:"26-4056 Clorox Consulting Services"},{gid:"1215726258904373",name:"26-4066 TE Richards MV-0025 Safety Upgrade"},{gid:"1211315622169216",name:"25-3014-1 Low Acid Processor RA, V"},{gid:"1215972606990547",name:"26-4072 Ford Louisville Auto Vehicle Marshalling RA"},{gid:"1215943625945315",name:"Risk Assessment Project Test 6/22/26"},{gid:"1215909730662456",name:"26-2051_GM Flint Piston Stuffing Cells"},{gid:"1215909561435899",name:"26-2050_Pontiac eMotor Lab TIG Weld Cell"},{gid:"1212328838643180",name:"25-4084 PFlow SLAM Sistema"},{gid:"1211293989908461",name:"25-4042 Large VRC Sistema"},{gid:"1213087104346322",name:"26-4027 SLAM, ZON, and ZONXL RAs"},{gid:"1213087104346312",name:"26-4026 ZON/ZONXL Sistema Report"},{gid:"1213835983962326",name:"26-4044 Greensboro SVTP"},{gid:"1211778891924271",name:"25-4077a Lilly RTP R6, R7, R11 RA"},{gid:"1215877346718335",name:"26-2049_GM Oshawa Bay 5 Controls Upgrade"},{gid:"1215814687250741",name:"26-4071 Zurich Phoenix Scoping Trip"},{gid:"1215835131877059",name:"26-4053 RC2 Risk Assessment"},{gid:"1211228757496021",name:"25-4027 Vallejo Misc Equipment Validation"},{gid:"1211751769667088",name:"25-4076 P&G Inwood Multiple Validations"},{gid:"1213043600999207",name:"26-3004 Remaining Can Line Remediation"},{gid:"1213878147130581",name:"26-4045 P&G TSC6 Line Validation"},{gid:"1214847356853146",name:"26-4049b Lilly Concord Exchanger RAs"},{gid:"1215173057722796",name:"26-4054 P&G Iowa City SVPs and Support"},{gid:"1215185539288522",name:"25-4077d Lilly RTP Bin Erector Robotic Cell RA"},{gid:"1215185539288507",name:"25-4077c Lilly RTP CPAL RA"},{gid:"1215814906074037",name:"Other Project Work"},{gid:"1215814906074033",name:"Asana Time"},{gid:"1215814906074029",name:"General Admin/Meetings"},{gid:"1215778933826517",name:"26-2034_GM Lake Orion GA 2.0 System Cells_CEC"},{gid:"1215778933826485",name:"26-2048_GM Toledo Robot and Conveyor System"},{gid:"1211411211357681",name:"0024_Ryan Klitzke 25"},{gid:"1215778716953510",name:"26-5010 Honda Trans Plant RA Training"},{gid:"1215778933826442",name:"26-2047d_GM Defiance Mod 5 & 6 Load & Unload Cells_EVEN"},{gid:"1215778933826433",name:"26-2047c_GM Defiance Mod 5 & 6 Load & Unload Cells_EVEN"},{gid:"1215778933826424",name:"26-2047b_GM Defiance Mod 5 & 6 Load & Unload Cells_EVEN"},{gid:"1215778997200413",name:"26-2047a_GM Defiance Mod 5 & 6 Load & Unload Cells_EVEN"},{gid:"1215773014337831",name:"26-4070 Robert Dietrick Surface Grinder Retrofit"},{gid:"1215724778266867",name:"26-4068 TE Richards CD-014 Walsh Press Safety Upgrade"},{gid:"1215724778266862",name:"26-4067 TE Richards MV-0085 Safety Upgrade"},{gid:"1215724778266851",name:"26-4065 TE Richards MV-0086 Safety Upgrade"},{gid:"1215724778266817",name:"26-4069 Lilly RTP RA Training"},{gid:"1215726258904349",name:"26-4064 TE Richards MV-0026 Safety Upgrade"},{gid:"1215726258904326",name:"26-4063 TE Richards CD-022 Walsh Press Safety Upgrade"},{gid:"1215726156775322",name:"26-4062 TE Richards CD-019 Walsh Press Safety Upgrade"},{gid:"1215724778266806",name:"26-4061 TE Richards CD-027 Walsh Press Safety Upgrade"},{gid:"1215724778266793",name:"26-4060 TE Richards CD-023 Walsh Press Safety Upgrade"},{gid:"1213748695609079",name:"26-4043-1 P&G Case Taper RA"},{gid:"1212558443618156",name:"25-3023 Valhalla Block 2 - New Lantech Stretch Wrapper"},{gid:"1211665519936893",name:"25-4013 Lilly Ongoing Services"},{gid:"1215638006161349",name:"26-4059 GCG Arc Flash Study - Harmony PA"},{gid:"1215678356002016",name:"26-4058b Ford AP4 Validation"},{gid:"1215633732975042",name:"26-2046_GM Lake Orion Turntables"},{gid:"1215634392419847",name:"26-2045_GM Lake Orion Frame Delivery Skid System_ASI"},{gid:"1215600775281413",name:"26-4058a Ford AP4 Press Risk Assessment"},{gid:"1215508298772910",name:"24-2015f_Propulsion Tig Welder-See 26-2050"},{gid:"1215386160496500",name:"25-4077b Lilly RTP R6 Pack RA"},{gid:"1215386160496496",name:"26-4051 Zurich Novolex Guarding"},{gid:"1215386160496492",name:"26-4050 Zurich Rockline RAs"},{gid:"1215386160343535",name:"Misc Admin/Meetings"},{gid:"1215386160343531",name:"Asana Work"},{gid:"1211428725188117",name:"Project Tracking_Main (Travel)"},{gid:"1213963778478737",name:"26-4046 Hagihara Paper Slitter Design Review"},{gid:"1213899742251669",name:"26-2025_GM Toledo Wire Harness Validation & Force Testing"},{gid:"1213888682279914",name:"26-2024_GM Marion Servo Line BB4 Revalidation"},{gid:"1213809444854259",name:"26-1006 TMMK Maverick Val"},{gid:"1213735934039004",name:"26-2023_GM Plymouth Material Handling Robot Cell ZJ010B01 Upgrade"},{gid:"1213729189345987",name:"26-4042 Lotte Aluminium LOTO evaluation"},{gid:"1213637006638270",name:"26-4025 John Deere Trumpf Laser RA"},{gid:"1213645209487758",name:"26-2022_GM Arlington New GLAS05"},{gid:"1213642856453741",name:"26-2021_GM Wentzville Cell Gates"},{gid:"1213577887503876",name:"26-3009-5 Metal Detection X-Ray System RA"},{gid:"1213577887503871",name:"26-3009-4 Dust Control Booth RA"},{gid:"1213603836861661",name:"26-3009-3 Mezzanine Vacuum System RA"},{gid:"1213576419649493",name:"26-3009-2 Floor Vacuum System RA"},{gid:"1213573797185748",name:"26-2020_GM Spring Hill ISS Replacement"},{gid:"1213573797185705",name:"26-2019_GM Spring Hill LASD Replacement"},{gid:"1211293989908363",name:"25-4044 C2 Equipment Risk Assessment"},{gid:"1212262465608824",name:"25-2097-2_GM DMAX Facility Engine Final Assembly & Test Line"},{gid:"1211850007295788",name:"25-2097_GM DMAX Facility Engine Final Assembly & Test Line (12 Stations)"},{gid:"1211673634949476",name:"25-4032 Olympic Steel Stamtec Blanking Press Safety Upgrade"},{gid:"1211924195808524",name:"25-2101_GM Toledo GF8 Final Test Stands (2)"},{gid:"1211673634949544",name:"25-4052 Skana Aluminum Cameron Slitter Review"},{gid:"1211609323999879",name:"25-4059 Parker Hannifin LOTO Placard"},{gid:"1212617330157420",name:"25-3025 Line 1 Packer and Taper Validation/FAT Trip"},{gid:"1211947767565365",name:"25-2070-2_GM SLP New Alignment Machine - GA-ALGN02"},{gid:"1211673634949822",name:"25-5012c LG FA CNS Pallet Cleaning Machine SISTEMA"},{gid:"1212262234163036",name:"25-5030 Honda LG Consulting Formation LNS"},{gid:"1211673634949460",name:"25-4031 Olympic Steel 600T Blanking Press Upgrades"},{gid:"1211843098637897",name:"25-4079 Lilly Consulting"},{gid:"1211697793316090",name:"25-1038 TMMTX Bell Head Test Validation"},{gid:"1212071390669904",name:"25-4081 Uteco Press Consulting"},{gid:"1211673634949852",name:"25-5013 LG Battery FA EQCell SISTEMA"},{gid:"1212240770114189",name:"25-4082b Steel Dynamics Band Saw Retrofit"},{gid:"1211967802605180",name:"25-1045 TMMK Plastics Tear Check Machine Verification"},{gid:"1211904163568358",name:"25-2100-B_GM Fort Wayne Conveyor Kit Rear Door Lines TDB02"},{gid:"1212076113208949",name:"25-2103_GM Factory Zero RUST 509 Cobot Install"},{gid:"1211626846339507",name:"25-4072 CRIPPA Italy Tube Bending Machine Consulting"},{gid:"1211697826946124",name:"25-3017 Line 1 Taper Guarding"},{gid:"1211836316787275",name:"25-1043 TMMTX BW Rank B and C Validation"},{gid:"1212294942635291",name:"25-3021-1 MPS Subcarb Unit RA, Verification"},{gid:"1211673634949554",name:"25-4052b Skana Aluminum Wean Slitter Review"},{gid:"1211836472211255",name:"25-2094-E_GM Lockport 5 Radiator Clip Machine #3"},{gid:"1211264942764588",name:"25-4062 Solvent Based Press RA"},{gid:"1212385649326614",name:"25-2110_GM Flint GMT65 and GMT25/GMT30 Trim Skid Skillet System"},{gid:"1212311238976796",name:"25-2107_GM Flint SpenTech RUST Robot Cells (3)"},{gid:"1211665519936883",name:"25-4056 Safety Requirements Doc"},{gid:"1211938605202450",name:"25-4080 Lilly RTP Site Scoping Trip"},{gid:"1212271100680596",name:"25-4083 Negri Bossi Injection Press Design Review"},{gid:"1211105755979751",name:"25-4041 IDM RA Training"},{gid:"1211940118789352",name:"25-2102_GM Marion Scan Cell"},{gid:"1211718891327897",name:"25-2094_GM Lockport 5 Radiator Clip Machines #2"},{gid:"1212385649326556",name:"25-2109_GM Marion BB4 Inkjet System"},{gid:"1211673634949508",name:"25-4037 Ford AP4 & AP5 Press Dearborn Stamping"},{gid:"1215721713846000",name:"25-4036 Ford Buffalo AP1 Validation"},{gid:"1212240770445686",name:"25-4082a Steel Dynamics Band Saw Risk Assessment"},{gid:"1212230779034729",name:"25-2105_GM Spring Hill Short Block Assy"},{gid:"1211807899130574",name:"25-1040 TMMK Plastics EndMill Machine Ver and Val Docs"},{gid:"1211673634949569",name:"25-4053 Skana Aluminum Cold Mill Review"},{gid:"1211653688677514",name:"25-1035 TBMNC BEV CoHE"},{gid:"1212230779034703",name:"25-2106_GM Factory Zero CA Zone B03 Bin Pick"},{gid:"1212328838643222",name:"25-3022 Sanko Filler Machine RA and Trip"},{gid:"1211673634949777",name:"25-5011 LG On-Site Support T&M"},{gid:"1211673634949896",name:"25-5029 LG Module On-Site Consulting"},{gid:"1211911106653357",name:"25-1044 TMMAL TNGA1 Oil Jet Verification and Val Test Doc"},{gid:"1211673634949889",name:"25-5027 Battery Electrode Validation Test Doc"},{gid:"1211673634949616",name:"25-4046 Logan Alum. DC1 AM CoHE Upgrade"},{gid:"1211710339251790",name:"25-4074 Concord Whole Site RA"},{gid:"1211836471345967",name:"25-2096_GM Flint Frame Turnover Cell One RFTN01"},{gid:"1211842606694448",name:"25-4078 Doerfer Training Moline, IL"},{gid:"1211707308390353",name:"25-2093_GM Arlington Revalidate B-Clearcoat Robot Zone"},{gid:"1211673634949492",name:"25-4060 Olympic Steel Misc RA & Design Review"},{gid:"1211904163568332",name:"25-2100_GM Fort Wayne Conveyor Kit Rear Door Lines TDB01"},{gid:"1211904163568309",name:"25-2099_GM Spring Hill Robotic Cradle Load Cell"},{gid:"1211626850588104",name:"25-4051b Caterpillar Large Mold Line RA"},{gid:"1211968843356353",name:"25-2096-B_GM Flint Frame Turnover Cell One RFTN02"},{gid:"1212396463658979",name:"26-4004 SIA - Subaru Indiana TF-G Press RA"},{gid:"1212407173172604",name:"26-4009 SIA - Subaru Indiana IJ-2 Injection Mold RA"},{gid:"1214309751806002",name:"26-2039_Fort Wayne uMan Tooling"},{gid:"1214046595777889",name:"26-2031_GM Fort Wayne G5 Training Cell"},{gid:"1212396463658972",name:"26-4003 SIA - Subaru Indiana TF-D Press RA"},{gid:"1213899742251679",name:"26-2026_GM Toledo Wire Harness Validation & Force Testing at GM Toledo"},{gid:"1214907112833038",name:"26-4052-1 CS Doser RA"},{gid:"1214046595777847",name:"26-2029_GM Lansing Grand River Paint Shop Modifications"},{gid:"1214062081682540",name:"26-2032_GM Oshawa Bay 12 Various Press Line Upgrades Consulting"},{gid:"1214583458510661",name:"26-2027-3_GM Arlington XL3 Press Partial Upgrade-Press 3"},{gid:"1213748695609084",name:"26-4043-2 P&G Case Taper Validation"},{gid:"1214048758450361",name:"26-2028_GM Factory Zero RESS H5 Relocation Revalidation"},{gid:"1214813541144386",name:"26-2043_GM Arlington RUST Body Shop New Robot Station"},{gid:"1212916288586146",name:"26-4018 Lilly Kenosha Consulting Time"},{gid:"1214075983589668",name:"26-2036_GM Lake Orion GA 2.0 System Cells_Indicon"},{gid:"1213381331712304",name:"26-5004 Honda Indiana FS Training"},{gid:"1215343392923115",name:"26-4057 Zurich Cow Rendering Audit"},{gid:"1214391933271151",name:"26-2040_GM Lake Orion GA 2.0 System Cells_Standard"},{gid:"1215285425773553",name:"26-2044_GM Lockport D2 Temperature Insertion Cobot Cell"},{gid:"1214301989863472",name:"26-2038_GM Oshawa RUST TC100 Vision Bin Pick Training Cell"},{gid:"1213026926802024",name:"26-4023 GCG - CLL Arc Flash Study Audit"},{gid:"1214045027049673",name:"26-4040 John Deere 514 Weld Cell Validation"},{gid:"1212407173172615",name:"26-4010 SIA - Subaru Indiana IJ-4 Injection Mold RA"},{gid:"1212396463627202",name:"26-4002 SIA - Subaru Indiana TF-C Press RA"},{gid:"1214907112833043",name:"26-4052-2 CS Doser Validation"},{gid:"1213573865071724",name:"26-2018_GM Oshawa Pneumatic Press Cushion Consulting"},{gid:"1212407173072054",name:"26-4006 SIA - Subaru Indiana BL-1 Blanking Line RA"},{gid:"1214583565636906",name:"26-2027-4_GM Arlington XL3 Press Partial Upgrade-Press 1, Press 2, FOL"},{gid:"1213363122227452",name:"26-4034 Magna LexaMar PSHSR"},{gid:"1213208864723535",name:"26-4017 Lilly Kenosha RA"},{gid:"1214061571071660",name:"26-4047 Steel Dynamics HEM Saw RA"},{gid:"1211867591414396",name:"26-4000 SIA - Subaru Indiana TF-A Press RA"},{gid:"1213809444854264",name:"26-1007 TMMK Plastics 311D Punch Ver + Val Test Docs"},{gid:"1213471036397388",name:"26-4036 PFlow Lift Validation"},{gid:"1212425491032440",name:"26-4011 SIA - Subaru Indiana IJ-5 Injection Mold RA"},{gid:"1213300522394707",name:"26-2012_GM Marion SK-1 Coil Lines Upgrade"},{gid:"1212396463658986",name:"26-4005 SIA - Subaru Indiana TF-H Press RA"},{gid:"1214815103481506",name:"26-2042_GM Spring Hill Robotic Roof Glass Delivery Cell Validation"},{gid:"1213645259294653",name:"26-3010 APV Homogenizer Validation"},{gid:"1214075983589661",name:"26-2035_GM Lake Orion GA 2.0 System Cells_Kasa"},{gid:"1214315059736151",name:"26-4049a Lilly Concord Cross-Over RA"},{gid:"1213915911897350",name:"26-3011 Line 2 Taper Validation"},{gid:"1213556904668326",name:"26-2017_GM DMAX RUST D68 TTT2 Revalidation"},{gid:"1213436122089109",name:"26-5005 Honda Alab Risk Assessment Training"},{gid:"1212407173172593",name:"26-4008 SIA - Subaru Indiana IJ-1 Injection Mold RA"},{gid:"1213458643300080",name:"26-4035 W Line Cooling Tunnel Validation"},{gid:"1213405078728156",name:"26-2015_GM DMAX Engine Assembly Cell OP2220"},{gid:"1213495041301669",name:"26-4037 Lilly Livers Consulting"},{gid:"1213392931699760",name:"26-2016_GM Spring Hill Battery RUST EC600B01 Cell"},{gid:"1214581731386916",name:"26-2027-2_GM Arlington XL3 Press Partial Upgrade-Press 4"},{gid:"1213623246663285",name:"26-4039 Antaya Rhode Island IMM RA"},{gid:"1214073905345412",name:"26-4048 P&G Stretch Wrapper SVP"},{gid:"1212396463627195",name:"26-4001 SIA - Subaru Indiana TF-B Press RA"},{gid:"1214553358633487",name:"26-2041_GM LGR RUST Fanuc Prime Exterior Zone Beta P55 Robots"},{gid:"1214046595777869",name:"26-2030_GM Lake Orion NEW Bodyshop Training Cell"},{gid:"1215361309288153",name:"26-1003 TMMK Plastics TIMM1 Mold Cart Ver + Val Test Docs"},{gid:"1214237778877470",name:"26-2037_GM Marion Wheel Based Transporter"},{gid:"1213636867329592",name:"26-4041 Imeg Corp - JD Windshield Wash Fluid Fill RA"},{gid:"1213129831172217",name:"26-1002 TMMTX Stamping Dejima Validation TEST DOCS only"},{gid:"1213899742251688",name:"26-2027_GM Arlington XL3 Press Partial Upgrade-EOL and Press 5 Automation"},{gid:"1211673634949272",name:"24-4107 Eagle Bend B2 Press Line RA Ver"},{gid:"1212270847060911",name:"24-1032jj Stamping Laser Weld Line 4 Soutec Ver"},{gid:"1211592144049461",name:"24-3022 Glass Crusher RA Updates and Re-Validation"},{gid:"1211396858223834",name:"24-3028-2 Allpax Can Line Basket V"},{gid:"1211228758854809",name:"24-3023-1 Packaging Lab Cobot RA"},{gid:"1211673634947041",name:"24-4090 Magna Eagle Bend Hot Stamp Line 4 RA"},{gid:"1211648805337211",name:"24-2015c_GM Pontiac (Thermotron Oven)"},{gid:"1211295664606501",name:"24-4004c Marelli - 3K-4 (IMM)"},{gid:"1211295664606639",name:"24-4004h Marelli - DTL2_5200"},{gid:"1211295664606718",name:"24-4004n Marelli - JL L2 5200"},{gid:"1211396858223816",name:"24-3014-1 Hot Fill Inline Capper RA, V"},{gid:"1211673634949341",name:"24-4109c WT Press 3 Robot Automation"},{gid:"1211666433889150",name:"24-4045 Magna Eagle Bend T8 Press Line RA"},{gid:"1211673634949603",name:"24-4078 Steel Dynamics Roll Changer"},{gid:"1211295664606664",name:"24-4004i Marelli - Shrink Wrapper"},{gid:"1211295664606690",name:"24-4004j Marelli - AntiFog Line 1"},{gid:"1211674042508338",name:"24-3018-1 Can Line Validation - Can Conveyor"},{gid:"1211295664606434",name:"24-4004a Marelli - W166L1_5200"},{gid:"1211614441076395",name:"24-2089_GM Flint T1 Hem Press Safety Upgrade"},{gid:"1211673634949238",name:"24-4087 Magna Eagle Bend Hot Stamp Line 1"},{gid:"1211592144049466",name:"24-3027-2 Re-validation of Phase 2B Items - Packer"},{gid:"1211653637028402",name:"24-3012-6 Can Line Remediation - Tunnel Pasteurizer (Validation)"},{gid:"1211396858223811",name:"24-3003-2 DHF Inline Capper V"},{gid:"1211648803231650",name:"24-2094_GM Defiance Laempe OP40 Warranty Issue"},{gid:"1211295664606580",name:"24-4004f Marelli - DTL4_5200"},{gid:"1211611191772494",name:"24-2062_GM Arlington Mark One Corp. New Oil Re-Apply Machine"},{gid:"1211667027136294",name:"24-1019 TMMK Walk/Dont Walk Arms #2"},{gid:"1211648805337119",name:"24-2049_GM Flint Engine-CR35 Validation (6 Trips)"},{gid:"1211295664606711",name:"24-4004m Marelli - 650-7 (IMM)"},{gid:"1211592144049456",name:"24-3011 HTST Tea Skid Replacement RA, V, and V"},{gid:"1211295664606607",name:"24-4004g Marelli - DTL3_5200"},{gid:"1211396858223825",name:"24-3027-1 Re-validation of Phase 2B Items - Taper"},{gid:"1211673634949378",name:"24-4109d WT Press 4 Robot Automation"},{gid:"1211667027136314",name:"24-5030 Honda Battery L&S Validation Test Docs"},{gid:"1211667027136331",name:"24-5005 Honda LG Battery PKG Validation Test Docs"},{gid:"1211295664606462",name:"24-4004b Marelli - 3K-2 (IMM)"},{gid:"1211673634949255",name:"24-4110 Eagle Bend P21 Press Line RA, Ver"},{gid:"1211396858223830",name:"24-3028-1 Allpax Can Line Basket RA, V"},{gid:"1211673634949204",name:"24-4089 Magna Eagle Bend Hot Stamp Line 3"},{gid:"1211673634947024",name:"24-4091 Magna Eagle Bend Hot Stamp Line 5 RA"},{gid:"1211653688677475",name:"24-5028 Honda Battery FA Avaco Validation Test Docs"},{gid:"1211295664606530",name:"24-4004d Marelli - KL Service 5400R"},{gid:"1211295664606697",name:"24-4004k Marelli - Reel Conveyor Tower"},{gid:"1211673634949399",name:"24-4111 Eagle Bend T5 Press Line RA Ver"},{gid:"1211667027136348",name:"24-5007 Honda LG Battery Formation Validation Test Docs"},{gid:"1211673634949221",name:"24-4088 Magna Eagle Bend Hot Stamp Line 2"},{gid:"1211673634949588",name:"24-4079 Steel Dynamics Crop Shear"},{gid:"1216037927215298",name:"Toyota Test 6/25/26"},{gid:"1216122614402189",name:"Toyota Test Validation Project 6.29.26"},{gid:"1215972454685247",name:"25-4046 Logan Al"},{gid:"1215681552874583",name:"26-4058b Ford AP4 Validation (copy)"},{gid:"1214993872319080",name:"24-2049_GM Flint Engine-CR35 Validation"},{gid:"1215629840590847",name:"24-3012 Can Line Remediation"},{gid:"1215721713845993",name:"24-5000 Honda LG Battery Overall"},{gid:"1213912373131953",name:"24-1032_TMMTX Risk Assessment Press Dejima Equipment"},{gid:"1216109243276636",name:"26-1003a TMMK TIM1 Mold Cart Drawing Update"},{gid:"1215972454685230",name:"26-4055 JD Bulk Storage"},{gid:"1215972454685240",name:"26-5008 Honda AL Bumper Regrind Val"},{gid:"1215721899131700",name:"26-5008 Honda AL Bumper Regrind Val v2"},{gid:"1215721899131714",name:"25-1046 TMMI Pillar Inov TR# Hyb Battery Prep Validation"},{gid:"1215721899131723",name:"25-4046-1 Logan Alum. DC1 AM CoHE Additional Documents"},{gid:"1215721713846007",name:"26-1008 TMMTX Paint RDS Robot Verif"},{gid:"1215629285379310",name:"26-1008 TX Paint RDS Robot Ver Val Docs"},{gid:"1215295587227104",name:"26-4055 JD PSM Bulk Storage 1234yf"}
+].filter((p,i,a)=>a.findIndex(x=>x.gid===p.gid)===i).sort((a,b)=>a.name.localeCompare(b.name));
+
+// =====================================================================
+// MSAL & AUTH
+// =====================================================================
+let msalInstance = null, currentAccount = null, graphToken = null, siteId = null;
+
+async function initMsal() {
+  if (!CFG.clientId || !CFG.tenantId) return false;
+  try {
+    msalInstance = new msal.PublicClientApplication({
+      auth: {
+        clientId: CFG.clientId,
+        authority: `https://login.microsoftonline.com/${CFG.tenantId}`,
+        redirectUri: window.location.href.split('?')[0].split('#')[0]
+      },
+      cache: { cacheLocation: 'sessionStorage' }
+    });
+    await msalInstance.initialize();
+    return true;
+  } catch(e) {
+    console.error('MSAL init error:', e);
+    return false;
+  }
+}
+
+async function signIn() {
+  if (!CFG.clientId) { showSetup(); return; }
+  try {
+    await msalInstance.loginRedirect({ scopes: ['User.Read', 'Sites.ReadWrite.All'] });
+    // Page will redirect to Microsoft login then come back — handleRedirect() below picks it up
+  } catch(e) {
+    document.getElementById('auth-error').style.display = 'block';
+    console.error(e);
+  }
+}
+
+async function finishLogin() {
+  try {
+    let tr;
+    try {
+      tr = await msalInstance.acquireTokenSilent({ scopes: ['User.Read', 'Sites.ReadWrite.All'], account: currentAccount });
+    } catch(silentErr) {
+      // Silent token acquisition failed, redirect to get a fresh token
+      await msalInstance.acquireTokenRedirect({ scopes: ['User.Read', 'Sites.ReadWrite.All'], account: currentAccount });
+      return;
+    }
+    graphToken = tr.accessToken;
+    const me = await graph('GET', '/me');
+    const name = me.displayName || me.mail || 'User';
+    const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('user-name').textContent = name;
+    document.getElementById('user-avatar').textContent = initials;
+    await resolveSiteId();
+    showApp();
+    applyRoleUI();
+    await loadFromSharePoint();
+  } catch(e) { console.error('Login finish error', e); }
+}
+
+function signOut() { msalInstance?.logoutRedirect(); }
+
+// =====================================================================
+// GRAPH API HELPERS
+// =====================================================================
+async function graph(method, path, body) {
+  const r = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${graphToken}`, 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!r.ok) throw new Error(`Graph ${method} ${path} → ${r.status}`);
+  return r.status === 204 ? null : r.json();
+}
+
+async function resolveSiteId() {
+  const r = await graph('GET', `/sites/${SP_HOST}:${SP_SITE_PATH}`);
+  siteId = r.id;
+}
+
+// =====================================================================
+// SHAREPOINT DATA SYNC
+// =====================================================================
+let entries = [], timesheets = [];
+let syncPending = false;
+
+function setSyncState(state) { // 'ok' | 'syncing' | 'error'
+  const dot = document.getElementById('sync-dot'), lbl = document.getElementById('sync-label');
+  dot.className = 'sync-dot' + (state === 'syncing' ? ' syncing' : state === 'error' ? ' error' : '');
+  lbl.textContent = state === 'syncing' ? 'Syncing…' : state === 'error' ? 'Sync error' : 'Synced';
+}
+
+async function loadFromSharePoint() {
+  if (!siteId) return;
+  setSyncState('syncing');
+  try {
+    // Load entries — admins see all, employees see only their own
+    const myName = document.getElementById('user-name').textContent;
+    const entryFilter = isAdmin() ? '' : `&$filter=fields/EmployeeName eq '${encodeURIComponent(myName)}'`;
+    const eResp = await graph('GET', `/sites/${siteId}/lists/${ENTRIES_LIST}/items?expand=fields&$top=2000${entryFilter}`);
+    entries = (eResp.value || []).map(i => ({
+      id: i.fields.EntryId || i.id,
+      spId: i.id,
+      date: i.fields.EntryDate,
+      hours: parseFloat(i.fields.Hours) || 0,
+      hourType: i.fields.HourType || 'office',
+      projectGid: i.fields.ProjectGid || '',
+      project: i.fields.ProjectName || '',
+      notes: i.fields.Notes || '',
+      group: i.fields.PayGroup || 'B',
+      employee: i.fields.EmployeeName || ''
+    }));
+    // Load timesheets — admins see all, employees see only their own
+    const tsFilter = isAdmin() ? '' : `&$filter=fields/EmployeeEmail eq '${encodeURIComponent(currentAccount?.username || '')}'`;
+    const tsResp = await graph('GET', `/sites/${siteId}/lists/${TIMESHEETS_LIST}/items?expand=fields&$top=500${tsFilter}`);
+    timesheets = (tsResp.value || []).map(i => ({
+      id: parseInt(i.fields.TimesheetId) || Date.now(),
+      spId: i.id,
+      periodKey: i.fields.PeriodKey,
+      periodLabel: i.fields.PeriodLabel,
+      group: i.fields.PayGroup,
+      hours: parseFloat(i.fields.TotalHours) || 0,
+      projects: (i.fields.Projects || '').split('|').filter(Boolean),
+      typeHours: JSON.parse(i.fields.TypeHoursJson || '{}'),
+      estimatedEarnings: parseFloat(i.fields.EstimatedEarnings) || 0,
+      status: i.fields.Status || 'pending',
+      employee: i.fields.EmployeeName || '',
+      employeeEmail: i.fields.EmployeeEmail || ''
+    }));
+    await loadExpensesFromSP();
+    setSyncState('ok');
+    refreshAll();
+  } catch(e) {
+    console.error('Load error', e);
+    setSyncState('error');
+    showToast('Could not load data from SharePoint. Check list names and permissions.');
+  }
+}
+
+async function saveEntry(entry) {
+  if (!siteId) return;
+  setSyncState('syncing');
+  try {
+    const fields = {
+      EntryId: String(entry.id),
+      EntryDate: entry.date,
+      Hours: entry.hours,
+      HourType: entry.hourType,
+      ProjectGid: entry.projectGid,
+      ProjectName: entry.project,
+      Notes: entry.notes || '',
+      PayGroup: entry.group,
+      EmployeeName: document.getElementById('user-name').textContent,
+      PeriodKey: getPeriodStart(entry.group, entry.date).toISOString().slice(0,10)
+    };
+    if (entry.spId) {
+      await graph('PATCH', `/sites/${siteId}/lists/${ENTRIES_LIST}/items/${entry.spId}`, { fields });
+    } else {
+      const r = await graph('POST', `/sites/${siteId}/lists/${ENTRIES_LIST}/items`, { fields });
+      entry.spId = r.id;
+    }
+    setSyncState('ok');
+  } catch(e) { console.error('Save entry error', e); setSyncState('error'); }
+}
+
+async function deleteEntryFromSP(spId) {
+  if (!siteId || !spId) return;
+  try { await graph('DELETE', `/sites/${siteId}/lists/${ENTRIES_LIST}/items/${spId}`); } catch(e) { console.error(e); }
+}
+
+async function saveTimesheet(ts) {
+  if (!siteId) return;
+  setSyncState('syncing');
+  try {
+    const fields = {
+      TimesheetId: String(ts.id),
+      PeriodKey: ts.periodKey,
+      PeriodLabel: ts.periodLabel,
+      PayGroup: ts.group,
+      TotalHours: ts.hours,
+      Projects: ts.projects.join('|'),
+      TypeHoursJson: JSON.stringify(ts.typeHours),
+      EstimatedEarnings: ts.estimatedEarnings,
+      Status: ts.status,
+      EmployeeName: document.getElementById('user-name').textContent,
+      EmployeeEmail: currentAccount?.username || ''
+    };
+    if (ts.spId) {
+      await graph('PATCH', `/sites/${siteId}/lists/${TIMESHEETS_LIST}/items/${ts.spId}`, { fields });
+    } else {
+      const r = await graph('POST', `/sites/${siteId}/lists/${TIMESHEETS_LIST}/items`, { fields });
+      ts.spId = r.id;
+    }
+    setSyncState('ok');
+  } catch(e) { console.error('Save TS error', e); setSyncState('error'); }
+}
+
+// =====================================================================
+// PROJECT SEARCH
+// =====================================================================
+let focusIdx = { clk: -1, man: -1, exp: -1 };
+
+function hl(text, q) {
+  if (!q) return esc(text);
+  const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+  return esc(text).replace(re, '<mark>$1</mark>');
+}
+function getMatches(q) {
+  if (!q.trim()) return PROJECTS.slice(0, 20);
+  const lq = q.toLowerCase();
+  return PROJECTS.filter(p => p.name.toLowerCase().includes(lq)).slice(0, 40);
+}
+function renderDD(pfx, q) {
+  const dd = document.getElementById(pfx + '-proj-dd');
+  const ms = getMatches(q); focusIdx[pfx] = -1;
+  dd.innerHTML = ms.length ? ms.map((p,i) => `<div class="proj-opt" data-gid="${p.gid}" data-name="${esc(p.name)}" data-idx="${i}"
+    onmousedown="selP('${pfx}','${p.gid}','${p.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">${hl(p.name, q)}</div>`).join('')
+    : '<div class="proj-none">No projects found</div>';
+}
+function openP(pfx) { renderDD(pfx, document.getElementById(pfx+'-proj-in').value); document.getElementById(pfx+'-proj-dd').classList.add('open'); }
+function closeP(pfx) { setTimeout(() => document.getElementById(pfx+'-proj-dd').classList.remove('open'), 200); }
+function filterP(pfx) { document.getElementById(pfx+'-proj-gid').value=''; renderDD(pfx, document.getElementById(pfx+'-proj-in').value); document.getElementById(pfx+'-proj-dd').classList.add('open'); }
+function selP(pfx, gid, name) { document.getElementById(pfx+'-proj-in').value=name; document.getElementById(pfx+'-proj-gid').value=gid; document.getElementById(pfx+'-proj-dd').classList.remove('open'); }
+function navP(e, pfx) {
+  const dd = document.getElementById(pfx+'-proj-dd'), opts = dd.querySelectorAll('.proj-opt');
+  if (!opts.length) return;
+  if (e.key==='ArrowDown') { e.preventDefault(); focusIdx[pfx]=Math.min(focusIdx[pfx]+1,opts.length-1); }
+  else if (e.key==='ArrowUp') { e.preventDefault(); focusIdx[pfx]=Math.max(focusIdx[pfx]-1,0); }
+  else if (e.key==='Enter' && focusIdx[pfx]>=0) { e.preventDefault(); const o=opts[focusIdx[pfx]]; selP(pfx,o.dataset.gid,o.dataset.name); return; }
+  else if (e.key==='Escape') { dd.classList.remove('open'); return; }
+  opts.forEach((o,i) => o.classList.toggle('focused', i===focusIdx[pfx]));
+  if (focusIdx[pfx]>=0) opts[focusIdx[pfx]].scrollIntoView({block:'nearest'});
+}
+
+// =====================================================================
+// CLOCK
+// =====================================================================
+let clockedIn=false, clockStart=null, clockInterval=null, clockType='office';
+
+function setCT(t) { clockType=t; ['office','travel','onsite'].forEach(x => document.getElementById('ct-'+x).className='type-btn'+(x===t?' active-'+t:'')); }
+
+function tickClock() {
+  const e=Math.floor((Date.now()-clockStart)/1000);
+  document.getElementById('timer').textContent=pad(Math.floor(e/3600))+':'+pad(Math.floor((e%3600)/60))+':'+pad(e%60);
+  document.getElementById('timer').classList.add('timer-running');
+}
+
+async function toggleClock() {
+  const gid=document.getElementById('clk-proj-gid').value, name=document.getElementById('clk-proj-in').value.trim();
+  if (!clockedIn) {
+    if (!gid) { showToast('Select a project first'); return; }
+    clockedIn=true; clockStart=Date.now(); clockInterval=setInterval(tickClock,1000);
+    document.getElementById('clk-btn').textContent='Clock out';
+    document.getElementById('clk-btn').className='btn danger';
+    document.getElementById('timer-status').textContent='Clocked in at '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+TL[clockType];
+  } else {
+    clockedIn=false; clearInterval(clockInterval);
+    const hrs=Math.max(Math.round((Date.now()-clockStart)/36000)/100,0.05);
+    document.getElementById('timer').classList.remove('timer-running');
+    document.getElementById('clk-btn').textContent='Clock in';
+    document.getElementById('clk-btn').className='btn success';
+    document.getElementById('timer-status').textContent='Not clocked in';
+    document.getElementById('timer').textContent='00:00:00';
+    const entry={id:Date.now(),date:isoDate(new Date()),hours:hrs,hourType:clockType,projectGid:gid,project:name,notes:document.getElementById('clk-notes').value,group:getGroup()};
+    entries.push(entry);
+    renderTodayEntries(); renderPeriodGrid(); renderTimesheets();
+    await saveEntry(entry);
+    showToast('Saved: '+hrs.toFixed(2)+'h · '+TL[clockType]);
+  }
+}
+
+function renderTodayEntries() {
+  const today=isoDate(new Date()), es=entries.filter(e=>e.date===today);
+  const el=document.getElementById('today-list');
+  if (!es.length) { el.innerHTML='<div class="empty">No entries yet today</div>'; return; }
+  el.innerHTML='<table class="tbl"><thead><tr><th style="width:36%">Project</th><th style="width:14%">Type</th><th style="width:11%">Hours</th><th style="width:29%">Notes</th><th style="width:10%"></th></tr></thead><tbody>'+
+    es.map(e=>`<tr><td title="${esc(e.project)}">${esc(e.project)}</td><td><span class="badge badge-${e.hourType||'office'}">${TL[e.hourType||'office']}</span></td><td>${e.hours.toFixed(2)}h</td><td style="color:var(--text-secondary)">${esc(e.notes||'—')}</td><td><button class="btn sm" onclick="delEntry(${e.id})">✕</button></td></tr>`).join('')+
+  '</tbody></table>';
+}
+
+async function delEntry(id) {
+  const e=entries.find(x=>x.id===id);
+  if (e) await deleteEntryFromSP(e.spId);
+  entries=entries.filter(x=>x.id!==id);
+  renderTodayEntries(); renderPeriodGrid(); renderTimesheets();
+}
+
+// =====================================================================
+// PERIOD GRID
+// =====================================================================
+let selectedDay=null;
+
+function onGroupChange() { updatePeriodBadge(); renderPeriodGrid(); renderTimesheets(); renderApprovals(); }
+
+function updatePeriodBadge() {
+  const g=getGroup(), {start,end}=getPeriod(g);
+  document.getElementById('period-badge').textContent='Period: '+fmtDate(start)+' – '+fmtDate(end);
+}
+
+function getPeriod(g) { const start=getPeriodStart(g,new Date()); return {start,end:getPeriodEnd(start)}; }
+
+function renderPeriodGrid() {
+  const g=getGroup(), {start,end}=getPeriod(g);
+  document.getElementById('period-label').textContent=fmtDate(start)+' – '+fmtDate(end);
+  const today=isoDate(new Date());
+  // Week 1
+  let w1='<div class="week-row">', w2='<div class="week-row">';
+  for (let i=0;i<14;i++) {
+    const d=new Date(start.getTime()+i*MS_DAY), ds=isoDate(d);
+    const dn=DAYS[(d.getDay()+6)%7];
+    const hrs=entries.filter(e=>e.date===ds).reduce((a,e)=>a+e.hours,0);
+    const cell=`<div class="day-cell ${ds===today?'today':''} ${selectedDay===ds?'sel':''}" onclick="selDay('${ds}','${dn} ${fmtDate(d)}')">
+      <div class="dn">${dn}</div><div class="dd">${d.getDate()}</div>
+      <div class="dh ${hrs>0?'has':''}">${hrs>0?hrs.toFixed(1)+'h':'—'}</div>
+    </div>`;
+    if (i<7) w1+=cell; else w2+=cell;
+  }
+  w1+='</div>'; w2+='</div>';
+  document.getElementById('period-grid').innerHTML=
+    `<div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px;">Week 1</div>${w1}<div style="font-size:11px;color:var(--text-secondary);margin:6px 0 3px;">Week 2</div>${w2}`;
+  renderPeriodEntries(start,end);
+}
+
+function selDay(key,label) {
+  selectedDay=key;
+  document.getElementById('sel-day-label').textContent='Add hours for '+label;
+  renderPeriodGrid();
+}
+
+function renderPeriodEntries(start,end) {
+  const es=entries.filter(e=>inPeriod(e.date,start,end)).sort((a,b)=>a.date.localeCompare(b.date));
+  const el=document.getElementById('period-entry-list');
+  if (!es.length) { el.innerHTML=''; return; }
+  el.innerHTML='<div class="divider"></div><table class="tbl"><thead><tr><th style="width:9%">Day</th><th style="width:29%">Project</th><th style="width:11%">Type</th><th style="width:9%">Hours</th><th style="width:32%">Notes</th><th style="width:10%"></th></tr></thead><tbody>'+
+    es.map(e=>{const d=new Date(e.date+'T12:00:00');return`<tr><td>${DAYS[(d.getDay()+6)%7]} ${d.getDate()}</td><td title="${esc(e.project)}" style="overflow:hidden;text-overflow:ellipsis;">${esc(e.project)}</td><td><span class="badge badge-${e.hourType||'office'}">${TL[e.hourType||'office']}</span></td><td>${e.hours.toFixed(1)}h</td><td style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;">${esc(e.notes||'')}</td><td><button class="btn sm" onclick="delEntry(${e.id})">✕</button></td></tr>`;}).join('')+
+  '</tbody></table>';
+}
+
+async function addEntry() {
+  if (!selectedDay) { showToast('Select a day first'); return; }
+  const hrs=parseFloat(document.getElementById('m-hrs').value);
+  const gid=document.getElementById('man-proj-gid').value, name=document.getElementById('man-proj-in').value.trim();
+  const type=document.getElementById('m-type').value, notes=document.getElementById('m-notes').value;
+  if (!hrs||hrs<=0) { showToast('Enter valid hours'); return; }
+  if (!gid) { showToast('Select a project'); return; }
+  const entry={id:Date.now(),date:selectedDay,hours:hrs,hourType:type,projectGid:gid,project:name,notes,group:getGroup()};
+  entries.push(entry);
+  document.getElementById('m-hrs').value=''; document.getElementById('m-notes').value='';
+  renderPeriodGrid(); renderTimesheets();
+  await saveEntry(entry);
+  showToast('Hours added · '+TL[type]);
+}
+
+// =====================================================================
+// TIMESHEETS
+// =====================================================================
+function getRates() { return {office:parseFloat(document.getElementById('r-office').value)||0,travel:parseFloat(document.getElementById('r-travel').value)||0,onsite:parseFloat(document.getElementById('r-onsite').value)||0}; }
+function saveRates() { localStorage.setItem('whs_rates',JSON.stringify(getRates())); }
+function calcEarnings(es) { const r=getRates(); return es.reduce((s,e)=>s+e.hours*(r[e.hourType]||r.office),0); }
+
+function typeSummHTML(es) {
+  const bt={office:0,travel:0,onsite:0}; es.forEach(e=>bt[e.hourType||'office']+=e.hours);
+  return Object.entries(bt).filter(([,h])=>h>0).map(([t,h])=>`<span class="badge badge-${t}" style="margin-right:5px;">${TL[t]}: ${h.toFixed(1)}h</span>`).join('');
+}
+
+function renderTimesheets() {
+  const g=getGroup(), {start,end}=getPeriod(g);
+  const curEs=entries.filter(e=>inPeriod(e.date,start,end));
+  const curHrs=curEs.reduce((a,e)=>a+e.hours,0), est=calcEarnings(curEs);
+  document.getElementById('ts-cur').textContent=curHrs.toFixed(1)+'h';
+  document.getElementById('ts-cur-est').textContent=est>0?'Est. $'+Math.round(est).toLocaleString():'';
+  const bd=document.getElementById('ts-breakdown');
+  if (curEs.length) { bd.style.display=''; document.getElementById('ts-type-summ').innerHTML=typeSummHTML(curEs); } else { bd.style.display='none'; }
+  const prevStart=new Date(start.getTime()-MS_PERIOD), prevEnd=getPeriodEnd(prevStart);
+  document.getElementById('ts-prev').textContent=entries.filter(e=>inPeriod(e.date,prevStart,prevEnd)).reduce((a,e)=>a+e.hours,0).toFixed(1)+'h';
+  const pend=timesheets.filter(t=>t.status==='pending').length;
+  document.getElementById('ts-pend').textContent=pend;
+  const pb=document.getElementById('pend-badge'); pb.style.display=pend>0?'inline':'none'; pb.textContent=pend;
+  document.getElementById('ts-body').innerHTML=[...timesheets].reverse().map(t=>{
+    const ts=Object.entries(t.typeHours||{}).filter(([,h])=>h>0).map(([x,h])=>`<span class="badge badge-${x}" style="font-size:10px;margin-right:2px;">${TL[x][0]} ${h.toFixed(1)}h</span>`).join('');
+    return`<tr><td style="overflow:hidden;text-overflow:ellipsis;" title="${t.periodLabel}">${t.periodLabel}</td><td>${t.hours.toFixed(1)}h</td><td>Grp ${t.group}</td><td style="overflow:hidden;text-overflow:ellipsis;" title="${esc((t.projects||[]).join(', '))}">${esc((t.projects||[]).slice(0,2).join(', '))}${(t.projects||[]).length>2?'…':''}</td><td>${ts||'—'}</td><td><span class="badge badge-${t.status}">${t.status}</span></td><td>${t.status==='pending'?`<button class="btn sm danger" onclick="recallTS(${t.id})">Recall</button>`:''}</td></tr>`;
+  }).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);padding:1.5rem;">No timesheets submitted yet</td></tr>';
+}
+
+async function submitTimesheet() {
+  const g=getGroup(), {start,end}=getPeriod(g), pk=isoDate(start);
+  if (timesheets.find(t=>t.periodKey===pk&&t.group===g&&!['recalled','draft'].includes(t.status))) { showToast('This period already submitted'); return; }
+  const es=entries.filter(e=>inPeriod(e.date,start,end));
+  if (!es.length) { showToast('No hours logged this period'); return; }
+  const hrs=es.reduce((a,e)=>a+e.hours,0), projects=[...new Set(es.map(e=>e.project))];
+  const typeHours={office:0,travel:0,onsite:0}; es.forEach(e=>typeHours[e.hourType||'office']+=e.hours);
+  const ts={id:Date.now(),periodKey:pk,periodLabel:fmtDate(start)+' – '+fmtDate(end),group:g,hours:hrs,projects,typeHours,estimatedEarnings:calcEarnings(es),status:'pending'};
+  timesheets.push(ts);
+  renderTimesheets(); renderApprovals();
+  await saveTimesheet(ts);
+  showToast('Timesheet submitted for approval ✓');
+}
+
+async function recallTS(id) {
+  const t=timesheets.find(t=>t.id===id); if(!t) return;
+  t.status='recalled'; renderTimesheets(); renderApprovals();
+  await saveTimesheet(t); showToast('Timesheet recalled');
+}
+
+// =====================================================================
+// APPROVALS
+// =====================================================================
+function renderApprovals() {
+  const pend=timesheets.filter(t=>t.status==='pending');
+  const appr=timesheets.filter(t=>t.status==='approved');
+  const al=document.getElementById('appr-list');
+  al.innerHTML=pend.length?pend.map(t=>{
+    const ts=Object.entries(t.typeHours||{}).filter(([,h])=>h>0).map(([x,h])=>`<span class="badge badge-${x}" style="margin-right:4px;">${TL[x]}: ${h.toFixed(1)}h</span>`).join('');
+    const est=t.estimatedEarnings?` · Est. $${Math.round(t.estimatedEarnings).toLocaleString()}`:'';
+    return`<div class="approval-item"><div class="approval-row">
+      <div>
+        <p style="font-size:14px;font-weight:600;">Group ${t.group} · ${t.periodLabel}</p>
+        ${t.employee?`<p style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${esc(t.employee)}</p>`:''}
+        <p style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${t.hours.toFixed(1)}h total${est}</p>
+        <div style="margin-top:6px;">${ts}</div>
+      </div>
+      <div class="approval-actions">
+        <button class="btn danger" onclick="denyTS(${t.id})">Deny</button>
+        <button class="btn success" onclick="approveTS(${t.id})">Approve</button>
+      </div>
+    </div></div>`;
+  }).join(''):'<div class="empty">No timesheets pending approval</div>';
+  const hl=document.getElementById('appr-history');
+  hl.innerHTML=appr.length?'<table class="tbl" style="table-layout:fixed"><thead><tr><th style="width:10%">Grp</th><th style="width:28%">Period</th><th style="width:10%">Hrs</th><th style="width:30%">Types</th><th style="width:14%">Est.</th><th style="width:8%">Status</th></tr></thead><tbody>'+
+    [...appr].reverse().map(t=>{const ts=Object.entries(t.typeHours||{}).filter(([,h])=>h>0).map(([x,h])=>`<span class="badge badge-${x}" style="font-size:10px;margin-right:2px;">${TL[x][0]} ${h.toFixed(1)}h</span>`).join('');return`<tr><td>Grp ${t.group}</td><td>${t.periodLabel}</td><td>${t.hours.toFixed(1)}h</td><td>${ts||'—'}</td><td>${t.estimatedEarnings?'$'+Math.round(t.estimatedEarnings).toLocaleString():'—'}</td><td><span class="badge badge-approved">✓</span></td></tr>`;}).join('')+'</tbody></table>'
+    :'<p style="font-size:13px;color:var(--text-secondary);">No approved timesheets yet.</p>';
+}
+
+async function approveTS(id) { const t=timesheets.find(t=>t.id===id); if(t){t.status='approved'; renderApprovals(); renderTimesheets(); await saveTimesheet(t); showToast('Timesheet approved ✓');} }
+async function denyTS(id) { const t=timesheets.find(t=>t.id===id); if(t){t.status='draft'; renderApprovals(); renderTimesheets(); await saveTimesheet(t); showToast('Sent back to employee');} }
+
+// =====================================================================
+// RATES
+// =====================================================================
+function renderRatesSummary() {
+  const g=getGroup(), {start,end}=getPeriod(g);
+  const es=entries.filter(e=>inPeriod(e.date,start,end));
+  const el=document.getElementById('rates-summ');
+  if (!es.length) { el.innerHTML='<p style="font-size:13px;color:var(--text-secondary);">No hours logged this period yet.</p>'; return; }
+  const r=getRates(), bt={office:0,travel:0,onsite:0}; es.forEach(e=>bt[e.hourType||'office']+=e.hours);
+  const total=calcEarnings(es);
+  el.innerHTML='<table class="tbl" style="table-layout:fixed"><thead><tr><th style="width:18%">Type</th><th style="width:18%">Hours</th><th style="width:18%">Rate</th><th>Subtotal</th></tr></thead><tbody>'+
+    Object.entries(bt).filter(([,h])=>h>0).map(([t,h])=>`<tr><td><span class="badge badge-${t}">${TL[t]}</span></td><td>${h.toFixed(2)}h</td><td>$${r[t]}/hr</td><td>$${(h*r[t]).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr>`).join('')+
+    `<tr style="font-weight:600;"><td colspan="3">Total</td><td>$${total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr></tbody></table>`;
+}
+
+// =====================================================================
+// EXPENSES
+// =====================================================================
+let expenses = [];
+
+async function loadExpensesFromSP() {
+  if (!siteId) return;
+  try {
+    const myNameExp = document.getElementById('user-name').textContent;
+    const expFilter = isAdmin() ? '' : `&$filter=fields/EmployeeName eq '${encodeURIComponent(myNameExp)}'`;
+    const r = await graph('GET', `/sites/${siteId}/lists/${EXPENSES_LIST}/items?expand=fields&$top=2000${expFilter}`);
+    expenses = (r.value || []).map(i => ({
+      id: i.fields.ExpenseId || i.id,
+      spId: i.id,
+      date: i.fields.ExpenseDate,
+      projectGid: i.fields.ProjectGid || '',
+      project: i.fields.ProjectName || '',
+      category: i.fields.Category || 'other',
+      amount: parseFloat(i.fields.Amount) || 0,
+      description: i.fields.Description || '',
+      group: i.fields.PayGroup || 'B',
+      employee: i.fields.EmployeeName || '',
+      periodKey: i.fields.PeriodKey || '',
+      status: i.fields.Status || 'draft'
+    }));
+  } catch(e) { console.warn('Expenses list not found or error:', e); }
+}
+
+async function saveExpense(exp) {
+  if (!siteId) return;
+  try {
+    const fields = {
+      ExpenseId: String(exp.id),
+      ExpenseDate: exp.date,
+      ProjectGid: exp.projectGid,
+      ProjectName: exp.project,
+      Category: exp.category,
+      Amount: exp.amount,
+      Description: exp.description,
+      PayGroup: exp.group,
+      EmployeeName: document.getElementById('user-name').textContent,
+      PeriodKey: getPeriodStart(exp.group, exp.date).toISOString().slice(0,10),
+      Status: exp.status || 'draft'
+    };
+    if (exp.spId) {
+      await graph('PATCH', `/sites/${siteId}/lists/${EXPENSES_LIST}/items/${exp.spId}`, { fields });
+    } else {
+      const r = await graph('POST', `/sites/${siteId}/lists/${EXPENSES_LIST}/items`, { fields });
+      exp.spId = r.id;
+    }
+  } catch(e) { console.error('Save expense error', e); showToast('Could not save expense — check Expenses list exists in SharePoint'); }
+}
+
+async function deleteExpenseFromSP(spId) {
+  if (!siteId || !spId) return;
+  try { await graph('DELETE', `/sites/${siteId}/lists/${EXPENSES_LIST}/items/${spId}`); } catch(e) { console.error(e); }
+}
+
+const CAT_LABELS = { mileage:'🚗 Mileage', airfare:'✈️ Airfare', hotel:'🏨 Hotel', meals:'🍽️ Meals', rental:'🚙 Car Rental', parking:'🅿️ Parking/Tolls', other:'📋 Other' };
+
+function renderExpenses() {
+  const g = getGroup(), {start, end} = getPeriod(g);
+  const periodExps = expenses.filter(e => inPeriod(e.date, start, end) && e.status !== 'submitted');
+  const total = periodExps.reduce((s, e) => s + e.amount, 0);
+  document.getElementById('exp-total').textContent = '$' + total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  // Set default date to today
+  if (!document.getElementById('exp-date').value) document.getElementById('exp-date').value = isoDate(new Date());
+  const el = document.getElementById('expense-list');
+  if (!periodExps.length) { el.innerHTML = '<div class="empty">No expenses logged this period</div>'; return; }
+  el.innerHTML = '<table class="tbl"><thead><tr><th style="width:11%">Date</th><th style="width:28%">Project</th><th style="width:14%">Category</th><th style="width:11%">Amount</th><th style="width:26%">Description</th><th style="width:10%"></th></tr></thead><tbody>' +
+    periodExps.map(e => `<tr><td>${e.date}</td><td title="${esc(e.project)}" style="overflow:hidden;text-overflow:ellipsis;">${esc(e.project)}</td><td style="font-size:12px;">${CAT_LABELS[e.category]||e.category}</td><td>$${e.amount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;">${esc(e.description)}</td><td><button class="btn sm" onclick="delExpense(${e.id})">✕</button></td></tr>`).join('') +
+  '</tbody></table>';
+}
+
+async function addExpense() {
+  const date = document.getElementById('exp-date').value;
+  const gid = document.getElementById('exp-proj-gid').value;
+  const name = document.getElementById('exp-proj-in').value.trim();
+  const cat = document.getElementById('exp-cat').value;
+  const amount = parseFloat(document.getElementById('exp-amount').value);
+  const desc = document.getElementById('exp-desc').value.trim();
+  if (!date) { showToast('Select a date'); return; }
+  if (!gid) { showToast('Select a project'); return; }
+  if (!amount || amount <= 0) { showToast('Enter a valid amount'); return; }
+  const exp = { id: Date.now(), date, projectGid: gid, project: name, category: cat, amount, description: desc, group: getGroup(), status: 'draft' };
+  expenses.push(exp);
+  document.getElementById('exp-amount').value = '';
+  document.getElementById('exp-desc').value = '';
+  renderExpenses();
+  await saveExpense(exp);
+  showToast('Expense added: $' + amount.toFixed(2));
+}
+
+async function delExpense(id) {
+  const e = expenses.find(x => x.id === id);
+  if (e) await deleteExpenseFromSP(e.spId);
+  expenses = expenses.filter(x => x.id !== id);
+  renderExpenses();
+}
+
+async function submitExpenses() {
+  const g = getGroup(), {start, end} = getPeriod(g);
+  const periodExps = expenses.filter(e => inPeriod(e.date, start, end) && e.status === 'draft');
+  if (!periodExps.length) { showToast('No expenses to submit'); return; }
+  for (const e of periodExps) {
+    e.status = 'submitted';
+    await saveExpense(e);
+  }
+  renderExpenses();
+  showToast('Expenses submitted for approval ✓');
+}
+
+// =====================================================================
+// REPORTS
+// =====================================================================
+function renderReports() {
+  const projFilter = (document.getElementById('rpt-proj-filter')?.value || '').toLowerCase();
+  const fromVal = document.getElementById('rpt-from')?.value;
+  const toVal = document.getElementById('rpt-to')?.value;
+  const fromDate = fromVal ? new Date(fromVal + 'T00:00:00') : null;
+  const toDate = toVal ? new Date(toVal + 'T23:59:59') : null;
+
+  let filtered = entries.filter(e => {
+    const d = new Date(e.date + 'T00:00:00');
+    if (fromDate && d < fromDate) return false;
+    if (toDate && d > toDate) return false;
+    if (projFilter && !e.project.toLowerCase().includes(projFilter)) return false;
+    return true;
+  });
+
+  // By project
+  const byProj = {};
+  filtered.forEach(e => {
+    if (!byProj[e.project]) byProj[e.project] = { office:0, travel:0, onsite:0, total:0 };
+    byProj[e.project][e.hourType||'office'] += e.hours;
+    byProj[e.project].total += e.hours;
+  });
+  const projRows = Object.entries(byProj).sort((a,b) => b[1].total - a[1].total);
+  document.getElementById('rpt-by-project').innerHTML = projRows.length ?
+    '<table class="tbl"><thead><tr><th style="width:44%">Project</th><th style="width:14%">Office</th><th style="width:14%">Travel</th><th style="width:14%">Onsite</th><th style="width:14%">Total</th></tr></thead><tbody>' +
+    projRows.map(([name, h]) => `<tr><td title="${esc(name)}" style="overflow:hidden;text-overflow:ellipsis;">${esc(name)}</td><td>${h.office>0?h.office.toFixed(1)+'h':'—'}</td><td>${h.travel>0?h.travel.toFixed(1)+'h':'—'}</td><td>${h.onsite>0?h.onsite.toFixed(1)+'h':'—'}</td><td style="font-weight:600;">${h.total.toFixed(1)}h</td></tr>`).join('') +
+    '</tbody></table>' : '<p style="font-size:13px;color:var(--text-secondary);">No data for selected filters.</p>';
+
+  // By employee
+  const byEmp = {};
+  filtered.forEach(e => {
+    const emp = e.employee || 'You';
+    if (!byEmp[emp]) byEmp[emp] = { office:0, travel:0, onsite:0, total:0 };
+    byEmp[emp][e.hourType||'office'] += e.hours;
+    byEmp[emp].total += e.hours;
+  });
+  const empRows = Object.entries(byEmp).sort((a,b) => b[1].total - a[1].total);
+  document.getElementById('rpt-by-employee').innerHTML = empRows.length ?
+    '<table class="tbl"><thead><tr><th style="width:44%">Employee</th><th style="width:14%">Office</th><th style="width:14%">Travel</th><th style="width:14%">Onsite</th><th style="width:14%">Total</th></tr></thead><tbody>' +
+    empRows.map(([name, h]) => `<tr><td>${esc(name)}</td><td>${h.office>0?h.office.toFixed(1)+'h':'—'}</td><td>${h.travel>0?h.travel.toFixed(1)+'h':'—'}</td><td>${h.onsite>0?h.onsite.toFixed(1)+'h':'—'}</td><td style="font-weight:600;">${h.total.toFixed(1)}h</td></tr>`).join('') +
+    '</tbody></table>' : '<p style="font-size:13px;color:var(--text-secondary);">No data.</p>';
+
+  // By type totals
+  const byType = { office:0, travel:0, onsite:0 };
+  filtered.forEach(e => byType[e.hourType||'office'] += e.hours);
+  const grandTotal = filtered.reduce((s,e) => s+e.hours, 0);
+  document.getElementById('rpt-by-type').innerHTML = grandTotal > 0 ?
+    '<table class="tbl" style="table-layout:fixed"><thead><tr><th style="width:33%">Type</th><th style="width:33%">Hours</th><th style="width:34%">% of total</th></tr></thead><tbody>' +
+    Object.entries(byType).map(([t,h]) => `<tr><td><span class="badge badge-${t}">${TL[t]}</span></td><td>${h.toFixed(1)}h</td><td>${grandTotal>0?Math.round(h/grandTotal*100):0}%</td></tr>`).join('') +
+    `<tr style="font-weight:600;"><td>Total</td><td>${grandTotal.toFixed(1)}h</td><td>100%</td></tr></tbody></table>`
+    : '<p style="font-size:13px;color:var(--text-secondary);">No data.</p>';
+
+  // All entries table
+  const sorted = [...filtered].sort((a,b) => b.date.localeCompare(a.date));
+  document.getElementById('rpt-all-entries').innerHTML = sorted.length ?
+    '<table class="tbl"><thead><tr><th style="width:11%">Date</th><th style="width:18%">Employee</th><th style="width:30%">Project</th><th style="width:11%">Type</th><th style="width:9%">Hours</th><th style="width:21%">Notes</th></tr></thead><tbody>' +
+    sorted.map(e => `<tr><td>${e.date}</td><td style="overflow:hidden;text-overflow:ellipsis;">${esc(e.employee||'You')}</td><td title="${esc(e.project)}" style="overflow:hidden;text-overflow:ellipsis;">${esc(e.project)}</td><td><span class="badge badge-${e.hourType||'office'}" style="font-size:10px;">${TL[e.hourType||'office']}</span></td><td>${e.hours.toFixed(1)}h</td><td style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;">${esc(e.notes||'')}</td></tr>`).join('') +
+    '</tbody></table>' : '<p style="font-size:13px;color:var(--text-secondary);">No entries match the current filters.</p>';
+}
+
+function clearReportFilters() {
+  document.getElementById('rpt-proj-filter').value = '';
+  document.getElementById('rpt-from').value = '';
+  document.getElementById('rpt-to').value = '';
+  renderReports();
+}
+
+// =====================================================================
+// ROLE-BASED UI
+// =====================================================================
+function applyRoleUI() {
+  const admin = isAdmin();
+  // Show/hide Approvals and Reports tabs for admins only
+  document.querySelectorAll('.admin-only-tab').forEach(el => {
+    el.style.display = admin ? '' : 'none';
+  });
+  // Update approvals tab label
+  if (admin) {
+    document.getElementById('approvals-tab-btn').innerHTML =
+      '✅ Approvals <span id="pend-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:1px 6px;font-size:11px;margin-left:3px;"></span>';
+  }
+  // Show admin badge next to name
+  if (admin) {
+    const pill = document.getElementById('user-pill-extra');
+    if (pill) pill.innerHTML = '<span style="font-size:11px;background:#E6F1FB;color:#185FA5;border-radius:99px;padding:2px 8px;font-weight:500;">Admin</span>';
+  }
+}
+
+// =====================================================================
+// TABS & NAV
+// =====================================================================
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  event.target.closest('.tab').classList.add('active');
+  document.getElementById('section-'+tab).classList.add('active');
+  if (tab==='manual') renderPeriodGrid();
+  if (tab==='timesheets') renderTimesheets();
+  if (tab==='approvals') renderApprovals();
+  if (tab==='expenses') renderExpenses();
+  if (tab==='reports') renderReports();
+  if (tab==='rates') renderRatesSummary();
+}
+
+function refreshAll() { renderTodayEntries(); renderPeriodGrid(); renderTimesheets(); renderApprovals(); }
+
+// =====================================================================
+// SETUP & SCREENS
+// =====================================================================
+function showSetup() {
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('setup-screen').style.display='flex';
+}
+
+async function saveSetup() {
+  const cid=document.getElementById('setup-client-id').value.trim();
+  const tid=document.getElementById('setup-tenant-id').value.trim();
+  if (!cid || !tid) { alert('Please fill in both IDs'); return; }
+  CFG = { clientId: cid, tenantId: tid };
+  localStorage.setItem('whs_cfg', JSON.stringify(CFG));
+  const ok = await initMsal();
+  if (!ok) { alert('Could not initialize authentication. Please check your Client ID and Tenant ID.'); return; }
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('auth-screen').style.display='flex';
+  showToast('Setup saved! Now sign in.');
+}
+
+function showApp() {
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  updatePeriodBadge();
+  const rates=JSON.parse(localStorage.getItem('whs_rates')||'{}');
+  if (rates.office) document.getElementById('r-office').value=rates.office;
+  if (rates.travel) document.getElementById('r-travel').value=rates.travel;
+  if (rates.onsite) document.getElementById('r-onsite').value=rates.onsite;
+}
+
+function showToast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// =====================================================================
+// BOOT
+// =====================================================================
+document.addEventListener('DOMContentLoaded', async function() {
+  try {
+    if (!CFG || !CFG.clientId || !CFG.tenantId) { showSetup(); return; }
+    if (!await initMsal()) { showSetup(); return; }
+
+    // Handle the redirect response when coming back from Microsoft login
+    const redirectResult = await msalInstance.handleRedirectPromise();
+    if (redirectResult && redirectResult.account) {
+      currentAccount = redirectResult.account;
+      await finishLogin();
+      return;
+    }
+
+    // No redirect — check if already signed in from a previous session
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      currentAccount = accounts[0];
+      await finishLogin();
+    }
+    // Otherwise the sign-in button is already visible — user clicks it
+  } catch(e) {
+    console.error('Boot error:', e);
+    if (!CFG || !CFG.clientId || !CFG.tenantId) showSetup();
+  }
+});
+</script>
+</body>
+</html>
